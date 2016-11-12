@@ -1,7 +1,6 @@
 // COMS20001 - Cellular Automaton Farm - Initial Code Skeleton
 // (using the XMOS i2c accelerometer demo code)
-//Will this change anything?
-//THis is pretty cool
+
 #include <platform.h>
 #include <xs1.h>
 #include <stdio.h>
@@ -26,6 +25,12 @@ port p_sda = XS1_PORT_1F;
 #define FXOS8700EQ_OUT_Y_LSB 0x4
 #define FXOS8700EQ_OUT_Z_MSB 0x5
 #define FXOS8700EQ_OUT_Z_LSB 0x6
+
+int rounds = 2;
+
+struct Grid {
+    uchar board[IMWD][IMHT];
+};
 
 /////////////////////////////////////////////////////////////////////////////////////////
 //
@@ -61,6 +66,44 @@ void DataInStream(char infname[], chanend c_out)
   return;
 }
 
+int nextCell (struct Grid grid, int x, int y, int isAlive) {
+    int live = 0;
+
+    for( int col = y-1; col <= y+1; col++) {
+        for(int row = x-1; row <= x+1; row++) {
+            if(grid.board[(row+16)%16][(col+16)%16] == 255) {   //If we find a living neighbour increment live
+                live++;
+            }
+        }
+    }
+
+    if((isAlive == 1) && (live == 3 || live == 4)) {            //Return next state for living cells
+        return 255;
+    }
+    if((isAlive == 0) && (live == 2)) {                         //Return next state for dead cells
+        return 255;
+    }
+    else {
+        return 0;
+    }
+}
+
+struct Grid nextGrid( struct Grid grid) {
+    struct Grid newGrid;
+
+    for( int y = 0; y < IMHT; y++ ) {
+        for( int x = 0; x < IMWD; x++ ) {
+            if(grid.board[x][y] == 255) {
+                newGrid.board[x][y] = nextCell(grid, x, y, 1);    //For each cell, get its next state from nextCell
+            }
+            else if(grid.board[x][y] == 0) {
+                newGrid.board[x][y] = nextCell(grid, x, y, 0);
+            }
+        }
+    }
+    return newGrid;
+}
+
 /////////////////////////////////////////////////////////////////////////////////////////
 //
 // Start your implementation by changing this function to implement the game of life
@@ -68,27 +111,35 @@ void DataInStream(char infname[], chanend c_out)
 // Currently the function just inverts the image
 //
 /////////////////////////////////////////////////////////////////////////////////////////
-void distributor(chanend c_in, chanend c_out, chanend fromAcc)
-{
-  uchar val;
+void distributor(chanend c_in, chanend c_out, chanend fromAcc) {
+    struct Grid grid;
 
-  //Starting up and wait for tilting of the xCore-200 Explorer
-  printf( "ProcessImage: Start, size = %dx%d\n", IMHT, IMWD );
-  printf( "Waiting for Board Tilt...\n" );
-  fromAcc :> int value;
+    //Starting up and wait for tilting of the xCore-200 Explorer
+    printf( "ProcessImage: Start, size = %dx%d\n", IMHT, IMWD );
+//  printf( "Waiting for Board Tilt...\n" );
+//  fromAcc :> int value;
 
-  //Read in and do something with your image values..
-  //This just inverts every pixel, but you should
-  //change the image according to the "Game of Life"
-  printf( "Processing...\n" );
-  for( int y = 0; y < IMHT; y++ ) {   //go through all lines
-    for( int x = 0; x < IMWD; x++ ) { //go through each pixel per line
-      c_in :> val;                    //read the pixel value
-      c_out <: (uchar)( val ^ 0xFF ); //send some modified pixel out
+    //Read in and do something with your image values..
+    //This just inverts every pixel, but you should
+    //change the image according to the "Game of Life"
+    printf( "Processing...\n" );
+
+    for( int y = 0; y < IMHT; y++) {      //Go through rows
+        for( int x = 0; x < IMWD; x++ ) { //Go through columns
+            c_in :> grid.board[x][y];     //Add pixel to grid structure
+        }
     }
-  }
-  printf( "\nOne processing round completed...\n" );
-}
+
+    grid = nextGrid(grid);
+
+    for( int y = 0; y < IMHT; y++) {
+        for( int x = 0; x < IMWD; x++ ) {
+            c_out <: grid.board[x][y];          //Send modified pixel to DataOutStream
+            printf("-%4.1d ", grid.board[x][y]);
+        }
+    }
+    printf( "\nOne processing round completed...\n" );
+    }
 
 /////////////////////////////////////////////////////////////////////////////////////////
 //
@@ -128,7 +179,7 @@ void DataOutStream(char outfname[], chanend c_in)
 // Initialise and  read orientation, send first tilt event to channel
 //
 /////////////////////////////////////////////////////////////////////////////////////////
-void orientation( client interface i2c_master_if i2c, chanend toDist) {
+/*void orientation( client interface i2c_master_if i2c, chanend toDist) {
   i2c_regop_res_t result;
   char status_data = 0;
   int tilted = 0;
@@ -154,7 +205,7 @@ void orientation( client interface i2c_master_if i2c, chanend toDist) {
     } while (!status_data & 0x08);
 
     //get new x-axis tilt value
-    int x = read_acceleration(i2c, FXOS8700EQ_OUT_X_MSB);
+   int x = read_acceleration(i2c, FXOS8700EQ_OUT_X_MSB);
 
     //send signal to distributor after first tilt
     if (!tilted) {
@@ -164,7 +215,7 @@ void orientation( client interface i2c_master_if i2c, chanend toDist) {
       }
     }
   }
-}
+}*/
 
 /////////////////////////////////////////////////////////////////////////////////////////
 //
@@ -181,7 +232,7 @@ chan c_inIO, c_outIO, c_control;    //extend your channel definitions here
 
 par {
     i2c_master(i2c, 1, p_scl, p_sda, 10);   //server thread providing orientation data
-    orientation(i2c[0],c_control);        //client thread reading orientation data
+ //   orientation(i2c[0],c_control);        //client thread reading orientation data
     DataInStream(infname, c_inIO);          //thread to read in a PGM image
     DataOutStream(outfname, c_outIO);       //thread to write out a PGM image
     distributor(c_inIO, c_outIO, c_control);//thread to coordinate work on image
