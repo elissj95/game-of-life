@@ -26,8 +26,6 @@ port p_sda = XS1_PORT_1F;
 #define FXOS8700EQ_OUT_Z_MSB 0x5
 #define FXOS8700EQ_OUT_Z_LSB 0x6
 
-int rounds = 2;
-
 struct Grid {
     uchar board[IMWD][IMHT];
 };
