@@ -26,6 +26,8 @@ port p_sda = XS1_PORT_1F;
 #define FXOS8700EQ_OUT_Z_MSB 0x5
 #define FXOS8700EQ_OUT_Z_LSB 0x6
 
+int rounds = 2;
+
 struct Grid {
     uchar board[IMWD][IMHT];
 };
@@ -69,7 +71,7 @@ int nextCell (struct Grid grid, int x, int y, int isAlive) {
 
     for( int col = y-1; col <= y+1; col++) {
         for(int row = x-1; row <= x+1; row++) {
-            if(grid.board[(row+16)%16][(col+16)%16] == 255) {   //If we find a living neighbour increment live
+            if(grid.board[(row+IMHT)%IMHT][(col+IMWD)%IMWD] == 255) {   //If we find a living neighbour increment live
                 live++;
             }
         }
@@ -110,7 +112,14 @@ struct Grid nextGrid( struct Grid grid) {
 //
 /////////////////////////////////////////////////////////////////////////////////////////
 void distributor(chanend c_in, chanend c_out, chanend fromAcc) {
+
+   // int val;
+
     struct Grid grid;
+    struct Grid subGrid1;
+    struct Grid subGrid2;
+    struct Grid subGrid3;
+    struct Grid subGrid4;
 
     //Starting up and wait for tilting of the xCore-200 Explorer
     printf( "ProcessImage: Start, size = %dx%d\n", IMHT, IMWD );
@@ -124,9 +133,24 @@ void distributor(chanend c_in, chanend c_out, chanend fromAcc) {
 
     for( int y = 0; y < IMHT; y++) {      //Go through rows
         for( int x = 0; x < IMWD; x++ ) { //Go through columns
-            c_in :> grid.board[x][y];     //Add pixel to grid structure
+
+            c_in:>grid.board[x][y];     //Add pixel to grid structure
+
+            if((y < IMHT/2) && (x < IMWD/2)) {
+               subGrid1.board[x][y] = grid.board[x][y];                     //Top left subgrid
+            }
+            else if((y < IMHT/2) && (x < IMWD)) {
+                subGrid2.board[x-(IMWD/2)][y] = grid.board[x][y];           //Top right subgrid
+            }
+            else if((y < IMHT) && (x < IMWD/2)) {
+                subGrid3.board[x][y-(IMHT/2)] = grid.board[x][y];           //Bottom left subgrid
+            }
+            else if((y <= IMHT) && (x <= IMWD)) {
+                subGrid4.board[x-(IMWD/2)][y-(IMHT/2)] = grid.board[x][y];  //Bottom right subgrid
+            }
         }
     }
+
 
     grid = nextGrid(grid);
 
@@ -136,8 +160,17 @@ void distributor(chanend c_in, chanend c_out, chanend fromAcc) {
             printf("-%4.1d ", grid.board[x][y]);
         }
     }
+
+
     printf( "\nOne processing round completed...\n" );
-    }
+
+/*    for( int y = 0; y < IMHT/2; y++) {      //Go through rows
+        for( int x = 0; x < IMWD/2; x++ ) { //Go through columns
+            printf("-%4.1d ", subGrid4.board[x][y]);
+            if(x == (IMHT/2)-1) { printf("\n"); }
+        }
+    }*/
+}
 
 /////////////////////////////////////////////////////////////////////////////////////////
 //
