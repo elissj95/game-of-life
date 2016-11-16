@@ -6,9 +6,10 @@
 #include <stdio.h>
 #include "pgmIO.h"
 #include "i2c.h"
+#include <math.h>
 
-#define  IMHT 16                  //image height
-#define  IMWD 16                  //image width
+#define  IMHT 64                  //image height
+#define  IMWD 64                  //image width
 
 typedef unsigned char uchar;      //using uchar as shorthand
 
@@ -38,25 +39,66 @@ struct Grid {
 void DataInStream(char infname[], chanend c_out)
 {
   int res;
-  uchar line[ IMWD ];
+  char line[ IMWD ];
   printf( "DataInStream: Start...\n" );
-
+  unsigned long test[IMHT][IMWD/32];
+  for(int y = 0; y<IMHT ;y++){
+      for(int x = 0;x<(IMWD/32);x++){
+          test[y][x] = 0;
+      }
+  }
   //Open PGM file
   res = _openinpgm( infname, IMWD, IMHT );
   if( res ) {
     printf( "DataInStream: Error openening %s\n.", infname );
     return;
   }
-
+  int counter = 0;
   //Read image line-by-line and send byte by byte to channel c_out
   for( int y = 0; y < IMHT; y++ ) {
     _readinline( line, IMWD );
+        for (int j = 0; j<IMWD ; j++){
+                if(j%32 == 0 && j!=0){
+                    counter++;
+
+                }
+
+
+
+
+                    if(line[j] == 0){
+
+                            test[y][counter] = test[y][counter] + pow(2,((31)-j%32));
+                    }
+
+
+
+            }
+        counter = 0;
+
     for( int x = 0; x < IMWD; x++ ) {
-      c_out <: line[ x ];
-      printf( "-%4.1d ", line[ x ] ); //show image values
+
+      if(x == 32){
+          printf("--");
+      }
+      if(line[x] == 255){
+          printf("0");
+      }
+      else{
+      printf( "1" ); //show image values
+      }
     }
     printf( "\n" );
   }
+  for(int y = 0; y<IMHT ;y++){
+                for(int x = 0;x<(IMWD/32);x++){
+                    printf("%lu-",test[y][x]);
+                    if(x == (IMWD/32)-1){
+                                     printf("\n");
+                                 }
+                }
+               }
+  c_out <: test[0][0];
 
   //Close PGM image file
   _closeinpgm();
@@ -116,7 +158,7 @@ void distributor(chanend c_in, chanend c_out, chanend fromAcc) {
     printf( "ProcessImage: Start, size = %dx%d\n", IMHT, IMWD );
 //  printf( "Waiting for Board Tilt...\n" );
 //  fromAcc :> int value;
-
+    unsigned long val;
     //Read in and do something with your image values..
     //This just inverts every pixel, but you should
     //change the image according to the "Game of Life"
@@ -124,7 +166,9 @@ void distributor(chanend c_in, chanend c_out, chanend fromAcc) {
 
     for( int y = 0; y < IMHT; y++) {      //Go through rows
         for( int x = 0; x < IMWD; x++ ) { //Go through columns
-            c_in :> grid.board[x][y];     //Add pixel to grid structure
+            c_in :> val;
+            printf("<<<%lu>>>", val);//Add pixel to grid structure
+
         }
     }
 
@@ -177,7 +221,7 @@ void DataOutStream(char outfname[], chanend c_in)
 // Initialise and  read orientation, send first tilt event to channel
 //
 /////////////////////////////////////////////////////////////////////////////////////////
-/*void orientation( client interface i2c_master_if i2c, chanend toDist) {
+void orientation( client interface i2c_master_if i2c, chanend toDist) {
   i2c_regop_res_t result;
   char status_data = 0;
   int tilted = 0;
@@ -213,7 +257,7 @@ void DataOutStream(char outfname[], chanend c_in)
       }
     }
   }
-}*/
+}
 
 /////////////////////////////////////////////////////////////////////////////////////////
 //
@@ -222,15 +266,17 @@ void DataOutStream(char outfname[], chanend c_in)
 /////////////////////////////////////////////////////////////////////////////////////////
 int main(void) {
 
+
 i2c_master_if i2c[1];               //interface to orientation
 
-char infname[] = "test.pgm";     //put your input image path here
+char infname[] = "64x64.pgm";     //put your input image path here
 char outfname[] = "testout.pgm"; //put your output image path here
 chan c_inIO, c_outIO, c_control;    //extend your channel definitions here
 
+
 par {
     i2c_master(i2c, 1, p_scl, p_sda, 10);   //server thread providing orientation data
- //   orientation(i2c[0],c_control);        //client thread reading orientation data
+    orientation(i2c[0],c_control);        //client thread reading orientation data
     DataInStream(infname, c_inIO);          //thread to read in a PGM image
     DataOutStream(outfname, c_outIO);       //thread to write out a PGM image
     distributor(c_inIO, c_outIO, c_control);//thread to coordinate work on image
@@ -238,3 +284,4 @@ par {
 
   return 0;
 }
+
