@@ -4,9 +4,10 @@
 #include <platform.h>
 #include <xs1.h>
 #include <stdio.h>
+#include <math.h>
 #include "pgmIO.h"
 #include "i2c.h"
-#include <math.h>
+#include "pack.h"
 
 #define  IMHT 64                  //image height
 #define  IMWD 64                  //image width
@@ -27,121 +28,37 @@ port p_sda = XS1_PORT_1F;
 #define FXOS8700EQ_OUT_Z_MSB 0x5
 #define FXOS8700EQ_OUT_Z_LSB 0x6
 
-struct Grid {
-    uchar board[IMWD][IMHT];
-};
-
 /////////////////////////////////////////////////////////////////////////////////////////
 //
 // Read Image from PGM file from path infname[] to channel c_out
 //
 /////////////////////////////////////////////////////////////////////////////////////////
-void DataInStream(char infname[], chanend c_out)
-{
-  int res;
-  char line[ IMWD ];
-  printf( "DataInStream: Start...\n" );
-  unsigned long test[IMHT][IMWD/32];
-  for(int y = 0; y<IMHT ;y++){
-      for(int x = 0;x<(IMWD/32);x++){
-          test[y][x] = 0;
-      }
-  }
-  //Open PGM file
-  res = _openinpgm( infname, IMWD, IMHT );
-  if( res ) {
-    printf( "DataInStream: Error openening %s\n.", infname );
-    return;
-  }
-  int counter = 0;
-  //Read image line-by-line and send byte by byte to channel c_out
-  for( int y = 0; y < IMHT; y++ ) {
-    _readinline( line, IMWD );
-        for (int j = 0; j<IMWD ; j++){
-                if(j%32 == 0 && j!=0){
-                    counter++;
+void DataInStream(char infname[], chanend c_out) {
+    int res;
+    uchar line[ IMWD ];
+    printf( "DataInStream: Start...\n" );
 
-                }
-
-
-
-
-                    if(line[j] == 0){
-
-                            test[y][counter] = test[y][counter] + pow(2,((31)-j%32));
-                    }
-
-
-
-            }
-        counter = 0;
-
-    for( int x = 0; x < IMWD; x++ ) {
-
-      if(x == 32){
-          printf("--");
-      }
-      if(line[x] == 255){
-          printf("0");
-      }
-      else{
-      printf( "1" ); //show image values
-      }
-    }
-    printf( "\n" );
-  }
-  for(int y = 0; y<IMHT ;y++){
-                for(int x = 0;x<(IMWD/32);x++){
-                    printf("%lu-",test[y][x]);
-                    if(x == (IMWD/32)-1){
-                                     printf("\n");
-                                 }
-                }
-               }
-  c_out <: test[0][0];
-
-  //Close PGM image file
-  _closeinpgm();
-  printf( "DataInStream: Done...\n" );
-  return;
-}
-
-int nextCell (struct Grid grid, int x, int y, int isAlive) {
-    int live = 0;
-
-    for( int col = y-1; col <= y+1; col++) {
-        for(int row = x-1; row <= x+1; row++) {
-            if(grid.board[(row+16)%16][(col+16)%16] == 255) {   //If we find a living neighbour increment live
-                live++;
-            }
-        }
+    //Open PGM file
+    res = _openinpgm( infname, IMWD, IMHT );
+    if( res ) {
+        printf( "DataInStream: Error openening %s\n.", infname );
+        return;
     }
 
-    if((isAlive == 1) && (live == 3 || live == 4)) {            //Return next state for living cells
-        return 255;
-    }
-    if((isAlive == 0) && (live == 2)) {                         //Return next state for dead cells
-        return 255;
-    }
-    else {
-        return 0;
-    }
-}
-
-struct Grid nextGrid( struct Grid grid) {
-    struct Grid newGrid;
-
+    //Read image line-by-line and send byte by byte to channel c_out
     for( int y = 0; y < IMHT; y++ ) {
+        _readinline( line, IMWD );
         for( int x = 0; x < IMWD; x++ ) {
-            if(grid.board[x][y] == 255) {
-                newGrid.board[x][y] = nextCell(grid, x, y, 1);    //For each cell, get its next state from nextCell
-            }
-            else if(grid.board[x][y] == 0) {
-                newGrid.board[x][y] = nextCell(grid, x, y, 0);
-            }
+            if(line[x]==255) {line[x] = 0;} //Not sure why it read in 64x64 images inverted?? This swaps them back
+            else{ line[x] = 255;}
+            c_out <: line[ x ];
         }
     }
-    return newGrid;
+
+    //Close PGM image file
+    _closeinpgm();
+    printf( "DataInStream: Done...\n" );
+    return;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -151,37 +68,37 @@ struct Grid nextGrid( struct Grid grid) {
 // Currently the function just inverts the image
 //
 /////////////////////////////////////////////////////////////////////////////////////////
-void distributor(chanend c_in, chanend c_out, chanend fromAcc) {
-    struct Grid grid;
+void distributor(chanend c_in, chanend c_out, chanend fromAcc){
+
+    uchar line[IMWD];
+    unsigned char intLine[IMWD];
+    struct byteGrid grid;
 
     //Starting up and wait for tilting of the xCore-200 Explorer
     printf( "ProcessImage: Start, size = %dx%d\n", IMHT, IMWD );
-//  printf( "Waiting for Board Tilt...\n" );
-//  fromAcc :> int value;
-    unsigned long val;
-    //Read in and do something with your image values..
-    //This just inverts every pixel, but you should
-    //change the image according to the "Game of Life"
     printf( "Processing...\n" );
 
-    for( int y = 0; y < IMHT; y++) {      //Go through rows
-        for( int x = 0; x < IMWD; x++ ) { //Go through columns
-            c_in :> val;
-            printf("<<<%lu>>>", val);//Add pixel to grid structure
-
+    for( int y = 0; y < IMHT; y++ ) {   //go through all lines
+        for( int x = 0; x < IMWD; x++ ) { //go through each pixel per line
+            c_in :> line[x];                    //read the pixel value
         }
+        grid = addlinetogrid(grid, line, y); //pack pixels to a bytes and add to row of grid
     }
 
-    grid = nextGrid(grid);
+ //   grid = worker(grid);
 
-    for( int y = 0; y < IMHT; y++) {
-        for( int x = 0; x < IMWD; x++ ) {
-            c_out <: grid.board[x][y];          //Send modified pixel to DataOutStream
-            printf("-%4.1d ", grid.board[x][y]);
+    for( int y = 0; y < IMHT; y++ ) {
+        for( int x = 0; x < IMWD/32; x++ ) {
+            intLine[x] = grid.board[y][x];
+        }
+        BackToPixels(intLine); //change bytes back to pixel values
+        for( int x = 0; x < IMWD; x++) {
+            c_out <: intLine[x];
+            printf("%lu", intLine[x]);
         }
     }
     printf( "\nOne processing round completed...\n" );
-    }
+}
 
 /////////////////////////////////////////////////////////////////////////////////////////
 //
@@ -221,43 +138,43 @@ void DataOutStream(char outfname[], chanend c_in)
 // Initialise and  read orientation, send first tilt event to channel
 //
 /////////////////////////////////////////////////////////////////////////////////////////
-void orientation( client interface i2c_master_if i2c, chanend toDist) {
-  i2c_regop_res_t result;
-  char status_data = 0;
-  int tilted = 0;
+/*void orientation( client interface i2c_master_if i2c, chanend toDist) {
+    i2c_regop_res_t result;
+    char status_data = 0;
+    int tilted = 0;
 
-  // Configure FXOS8700EQ
-  result = i2c.write_reg(FXOS8700EQ_I2C_ADDR, FXOS8700EQ_XYZ_DATA_CFG_REG, 0x01);
-  if (result != I2C_REGOP_SUCCESS) {
-    printf("I2C write reg failed\n");
-  }
-
-  // Enable FXOS8700EQ
-  result = i2c.write_reg(FXOS8700EQ_I2C_ADDR, FXOS8700EQ_CTRL_REG_1, 0x01);
-  if (result != I2C_REGOP_SUCCESS) {
-    printf("I2C write reg failed\n");
-  }
-
-  //Probe the orientation x-axis forever
-  while (1) {
-
-    //check until new orientation data is available
-    do {
-      status_data = i2c.read_reg(FXOS8700EQ_I2C_ADDR, FXOS8700EQ_DR_STATUS, result);
-    } while (!status_data & 0x08);
-
-    //get new x-axis tilt value
-   int x = read_acceleration(i2c, FXOS8700EQ_OUT_X_MSB);
-
-    //send signal to distributor after first tilt
-    if (!tilted) {
-      if (x>30) {
-        tilted = 1 - tilted;
-        toDist <: 1;
-      }
+    // Configure FXOS8700EQ
+    result = i2c.write_reg(FXOS8700EQ_I2C_ADDR, FXOS8700EQ_XYZ_DATA_CFG_REG, 0x01);
+    if (result != I2C_REGOP_SUCCESS) {
+        printf("I2C write reg failed\n");
     }
-  }
-}
+
+    // Enable FXOS8700EQ
+    result = i2c.write_reg(FXOS8700EQ_I2C_ADDR, FXOS8700EQ_CTRL_REG_1, 0x01);
+    if (result != I2C_REGOP_SUCCESS) {
+        printf("I2C write reg failed\n");
+    }
+
+    //Probe the orientation x-axis forever
+    while (1) {
+
+        //check until new orientation data is available
+        do {
+            status_data = i2c.read_reg(FXOS8700EQ_I2C_ADDR, FXOS8700EQ_DR_STATUS, result);
+        } while (!status_data & 0x08);
+
+        //get new x-axis tilt value
+        int x = read_acceleration(i2c, FXOS8700EQ_OUT_X_MSB);
+
+        //send signal to distributor after first tilt
+        if (!tilted) {
+            if (x>30) {
+                tilted = 1 - tilted;
+                toDist <: 1;
+            }
+        }
+    }
+}*/
 
 /////////////////////////////////////////////////////////////////////////////////////////
 //
@@ -266,17 +183,15 @@ void orientation( client interface i2c_master_if i2c, chanend toDist) {
 /////////////////////////////////////////////////////////////////////////////////////////
 int main(void) {
 
-
 i2c_master_if i2c[1];               //interface to orientation
 
 char infname[] = "64x64.pgm";     //put your input image path here
 char outfname[] = "testout.pgm"; //put your output image path here
 chan c_inIO, c_outIO, c_control;    //extend your channel definitions here
 
-
 par {
     i2c_master(i2c, 1, p_scl, p_sda, 10);   //server thread providing orientation data
-    orientation(i2c[0],c_control);        //client thread reading orientation data
+  //  orientation(i2c[0],c_control);        //client thread reading orientation data
     DataInStream(infname, c_inIO);          //thread to read in a PGM image
     DataOutStream(outfname, c_outIO);       //thread to write out a PGM image
     distributor(c_inIO, c_outIO, c_control);//thread to coordinate work on image
@@ -284,4 +199,3 @@ par {
 
   return 0;
 }
-
