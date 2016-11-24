@@ -1,12 +1,21 @@
 #include "pack.h"
 #include <math.h>
+#include <stdio.h>
 
 //Converts an array of unsigned longs back to array of pixels
-void BackToPixels(unsigned char i[]) {
-    for(int x = 0; x < IMWD; x++) {
-        i[x] = 0;
+void toPixels(unsigned char i[], int j[]) {
+    int offset = IMWD;
+
+    for(int y = IMWD/32 -1; y >= 0; y--) {
+        for(int x = offset; x >= offset - 32; x--) {
+            if(i[y] % 2) { j[x] = 1; }
+            else { j[x] = 0; }
+            i[y] >>= 1;
+        }
+        offset = offset - 32;
     }
 }
+
 // Takes in the Grid, line and linenum and encodes that line of the Grid to be the binary line given in.
 struct byteGrid addlinetogrid(struct byteGrid grid, unsigned char line[], int lineNum){
     int counter = 0;
