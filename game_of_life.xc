@@ -1,6 +1,5 @@
-// COMS20001 - Cellular Automaton Farm - Initial Code Skeleton
+// COMS20001 - Cellular Automaton Farm
 // (using the XMOS i2c accelerometer demo code)
-
 #include <platform.h>
 #include <xs1.h>
 #include <stdio.h>
@@ -28,11 +27,7 @@ port p_sda = XS1_PORT_1F;
 #define FXOS8700EQ_OUT_Z_MSB 0x5
 #define FXOS8700EQ_OUT_Z_LSB 0x6
 
-/////////////////////////////////////////////////////////////////////////////////////////
-//
 // Read Image from PGM file from path infname[] to channel c_out
-//
-/////////////////////////////////////////////////////////////////////////////////////////
 void DataInStream(char infname[], chanend c_out) {
     int res;
     uchar line[ IMWD ];
@@ -61,13 +56,7 @@ void DataInStream(char infname[], chanend c_out) {
     return;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////
-//
-// Start your implementation by changing this function to implement the game of life
-// by farming out parts of the image to worker threads who implement it...
-// Currently the function just inverts the image
-//
-/////////////////////////////////////////////////////////////////////////////////////////
+// Distributes work to worker threads
 void distributor(chanend c_in, chanend c_out, chanend fromAcc){
 
     uchar line[IMWD];
@@ -100,11 +89,7 @@ void distributor(chanend c_in, chanend c_out, chanend fromAcc){
     printf( "\nOne processing round completed...\n" );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////
-//
 // Write pixel stream from channel c_in to PGM image file
-//
-/////////////////////////////////////////////////////////////////////////////////////////
 void DataOutStream(char outfname[], chanend c_in)
 {
   int res;
@@ -133,11 +118,7 @@ void DataOutStream(char outfname[], chanend c_in)
   return;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////
-//
 // Initialise and  read orientation, send first tilt event to channel
-//
-/////////////////////////////////////////////////////////////////////////////////////////
 /*void orientation( client interface i2c_master_if i2c, chanend toDist) {
     i2c_regop_res_t result;
     char status_data = 0;
@@ -176,11 +157,8 @@ void DataOutStream(char outfname[], chanend c_in)
     }
 }*/
 
-/////////////////////////////////////////////////////////////////////////////////////////
-//
+
 // Orchestrate concurrent system and start up all threads
-//
-/////////////////////////////////////////////////////////////////////////////////////////
 int main(void) {
 
 i2c_master_if i2c[1];               //interface to orientation
