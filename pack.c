@@ -1,13 +1,7 @@
-/*
- * Grid.c
- *
- *  Created on: Nov 15, 2016
- *      Author: Owner
- */
-
 #include "pack.h"
 #include <math.h>
 
+//Converts an array of unsigned longs back to array of pixels
 void BackToPixels(unsigned char i[]) {
     for(int x = 0; x < IMWD; x++) {
         i[x] = 0;
@@ -32,9 +26,7 @@ struct byteGrid addlinetogrid(struct byteGrid grid, unsigned char line[], int li
     return grid;
 }
 
-/*
- * Takes in a Grid and sets all the values to 0, all 64x64 entries. Then returns the Grid.
- */
+//Takes in a Grid and sets all the values to 0, all 64x64 entries. Then returns the Grid.
 struct Grid setzerogrid(struct Grid grid){
     struct Grid testGrid = grid;
     for(int y = 0 ; y<IMHT ; y++){
@@ -45,6 +37,7 @@ struct Grid setzerogrid(struct Grid grid){
     return testGrid;
 }
 
+//Takes a pixel and determines how many of its surrounding pixels are alive
 int GridToNine(struct Grid grid, int ypos, int xpos, int i, int isdead){
     //Take 3 numbers, start from above and continuing to below
     unsigned long threerow[3];
@@ -159,6 +152,7 @@ int GridToNine(struct Grid grid, int ypos, int xpos, int i, int isdead){
 
 }
 
+//Takes a grid and returns its evolved state
 struct Grid worker(struct Grid grid){
     struct Grid test;
     test = grid;
@@ -210,9 +204,8 @@ struct Grid worker(struct Grid grid){
     }
     return test;
 }
-/*
- * Takes in the current Grid, and just from the integer passed in 16 more rows of the Grid. Then returns that portion of the Grid
- */
+
+//Takes in the current Grid, and just from the integer passed in 16 more rows of the Grid. Then returns that portion of the Grid
 /*struct Grid worker(struct Grid Grid, int start){
     struct Grid grid;
     for(int y = 0; y<18 ;y++){
