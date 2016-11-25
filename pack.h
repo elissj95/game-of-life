@@ -20,6 +20,5 @@ struct byteGrid addlinetogrid(struct byteGrid grid, unsigned char line[], int li
 struct Grid setzerogrid(struct Grid grid);
 struct byteGrid zeroByteGrid(struct byteGrid grid);
 struct Grid worker(struct Grid grid);
-void toPixels(unsigned char i[], int j[]);
 
 #endif //PACK_H_
