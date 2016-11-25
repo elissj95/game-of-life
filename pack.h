@@ -17,8 +17,8 @@ struct byteGrid {
 };
 
 struct byteGrid addlinetogrid(struct byteGrid grid, unsigned char line[], int lineNum);
-struct Grid setzerogrid(struct Grid grid);
+struct byteGrid setzerogrid(struct byteGrid grid);
 struct byteGrid zeroByteGrid(struct byteGrid grid);
-struct Grid worker(struct Grid grid);
+struct byteGrid worker(struct byteGrid grid);
 
 #endif //PACK_H_

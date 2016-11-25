@@ -8,7 +8,7 @@
 #include "i2c.h"
 #include "pack.h"
 
-#define  IMHT 64                  //image height
+#define  IMHT 64                 //image height
 #define  IMWD 64                  //image width
 
 typedef unsigned char uchar;      //using uchar as shorthand
@@ -31,6 +31,7 @@ port p_sda = XS1_PORT_1F;
 void DataInStream(char infname[], chanend c_out) {
     int res;
     uchar line[ IMWD ];
+    struct byteGrid grid;
     printf( "DataInStream: Start...\n" );
 
     //Open PGM file
@@ -43,8 +44,19 @@ void DataInStream(char infname[], chanend c_out) {
     //Read image line-by-line and send byte by byte to channel c_out
     for( int y = 0; y < IMHT; y++ ) {
         _readinline( line, IMWD );
-        for( int x = 0; x < IMWD; x++ ) {
-            c_out <: line[ x ];
+        grid = addlinetogrid(grid, line, y);
+    }
+
+    for( int y = 0; y < IMHT; y++ ) {
+        for(int x = 0; x < IMWD/32; x++) {
+            printf("%lu -",grid.board[y][x]);
+        }
+        printf("\n");
+    }
+
+    for( int y = 0; y< IMHT;y++){
+        for(int x = 0; x<(IMWD/32) ;x++){
+            c_out <: grid.board[y][x];
         }
     }
 
@@ -57,9 +69,7 @@ void DataInStream(char infname[], chanend c_out) {
 // Distributes work to worker threads
 void distributor(chanend c_in, chanend c_out, chanend fromAcc){
 
-    uchar line[IMWD];
-    unsigned long intLine[IMWD];
-    int offset = 0;
+    unsigned char intLine[IMWD];
     struct byteGrid grid;
 
     //Starting up and wait for tilting of the xCore-200 Explorer
@@ -67,18 +77,22 @@ void distributor(chanend c_in, chanend c_out, chanend fromAcc){
     printf( "Processing...\n" );
 
     for( int y = 0; y < IMHT; y++ ) {   //go through all lines
-        for( int x = 0; x < IMWD; x++ ) { //go through each pixel per line
-            c_in :> line[x];                    //read the pixel value
+        for( int x = 0; x < (IMWD/32); x++ ) { //go through each pixel per line
+            c_in :> grid.board[y][x];   //read the pixel value
         }
-        grid = addlinetogrid(grid, line, y); //pack pixels to a bytes and add to row of grid
     }
 
- //   grid = worker(grid);
+    grid = worker(grid);
+    printf("----\n");
+    grid = worker(grid);
+    printf("----\n");
+    grid = worker(grid);
+    printf("----\n");
 
     for(int x = 0; x < IMHT; x++) {
-        for(int y = 0; y < IMWD/32; y++) {
-            c_out <: grid.board[x][y];
-        }
+      for(int y = 0; y < IMWD/32; y++) {
+        c_out <: grid.board[x][y];
+      }
     }
     printf( "\nOne processing round completed...\n" );
 }
@@ -132,30 +146,24 @@ void DataOutStream(char outfname[], chanend c_in){
     i2c_regop_res_t result;
     char status_data = 0;
     int tilted = 0;
-
     // Configure FXOS8700EQ
     result = i2c.write_reg(FXOS8700EQ_I2C_ADDR, FXOS8700EQ_XYZ_DATA_CFG_REG, 0x01);
     if (result != I2C_REGOP_SUCCESS) {
         printf("I2C write reg failed\n");
     }
-
     // Enable FXOS8700EQ
     result = i2c.write_reg(FXOS8700EQ_I2C_ADDR, FXOS8700EQ_CTRL_REG_1, 0x01);
     if (result != I2C_REGOP_SUCCESS) {
         printf("I2C write reg failed\n");
     }
-
     //Probe the orientation x-axis forever
     while (1) {
-
         //check until new orientation data is available
         do {
             status_data = i2c.read_reg(FXOS8700EQ_I2C_ADDR, FXOS8700EQ_DR_STATUS, result);
         } while (!status_data & 0x08);
-
         //get new x-axis tilt value
         int x = read_acceleration(i2c, FXOS8700EQ_OUT_X_MSB);
-
         //send signal to distributor after first tilt
         if (!tilted) {
             if (x>30) {
