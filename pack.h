@@ -5,21 +5,16 @@
 #include <stdio.h>
 #include <string.h>
 
-#define IMWD 64
-#define IMHT 64
-
-struct Grid {
-    unsigned char board[IMHT][IMWD];
-};
+#define IMWD 256
+#define IMHT 256
 
 struct byteGrid {
     unsigned long board[IMHT][IMWD/32];
 };
 
 struct byteGrid addlinetogrid(struct byteGrid grid, unsigned char line[], int lineNum);
-struct Grid setzerogrid(struct Grid grid);
+struct byteGrid setzerogrid(struct byteGrid grid);
 struct byteGrid zeroByteGrid(struct byteGrid grid);
-struct Grid worker(struct Grid grid);
-void toPixels(unsigned char i[], int j[]);
+struct byteGrid worker(struct byteGrid grid);
 
 #endif //PACK_H_
