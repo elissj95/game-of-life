@@ -8,8 +8,18 @@
 //#include "i2c.h"
 #include "pack.h"
 
-#define  IMHT 64                 //image height
-#define  IMWD 64                  //image width
+on tile[0] : in port buttons = XS1_PORT_4E; //port to access xCore-200 buttons
+on tile[0] : out port leds = XS1_PORT_4F;   //port to access xCore-200 LEDs
+
+/*
+Button SW1: This button should start the reading and processing
+of an image, indicate reading by lighting the green LED, indicate
+ongoing processing by flashing of the other, separate green LED
+alternating its state once per processing round over the image.
+*/
+
+#define  IMHT 128                 //image height
+#define  IMWD 128                  //image width
 
 typedef unsigned char uchar;      //using uchar as shorthand
 
@@ -166,7 +176,7 @@ int main(void) {
 
 //i2c_master_if i2c[1];               //interface to orientation
 
-char infname[] = "64x64.pgm";     //put your input image path here
+char infname[] = "128x128.pgm";     //put your input image path here
 char outfname[] = "testout.pgm"; //put your output image path here
 chan c_inIO, c_outIO, c_control;    //extend your channel definitions here
 

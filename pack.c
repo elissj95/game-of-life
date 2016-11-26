@@ -19,7 +19,6 @@ struct byteGrid addlinetogrid(struct byteGrid grid, unsigned char line[], int li
         }
     }
     return grid;
-
 }
 
 //Takes in a Grid and sets all the values to 0, all 64x64 entries. Then returns the Grid.
