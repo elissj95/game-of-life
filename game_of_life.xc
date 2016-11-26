@@ -50,10 +50,8 @@ void DataInStream(char infname[], chanend c_out) {
     //Send each element of grid to distributor
     for( int y = 0; y< IMHT;y++){
         for(int x = 0; x<(IMWD/32) ;x++){
-            printf("%lu -", grid.board[y][x]);
             c_out <: grid.board[y][x];
         }
-        printf("\n");
     }
     //Close PGM image file
     _closeinpgm();
@@ -104,7 +102,7 @@ void DataOutStream(char outfname[], chanend c_in){
         return;
     }
 
-    //Compile each line of the image and write the image line-by-line
+    //Compile each line of the image and covert the image back to uchars line-by-line
     for( int y = 0; y < IMHT; y++ ) {
         for( int x = 0; x < IMWD/32; x++ ) {
             c_in :> intLine[x];
@@ -113,6 +111,7 @@ void DataOutStream(char outfname[], chanend c_in){
         for(int a = 0; a < IMWD/32; a++) {
             int p = 32-1;
             for(int z = offset; z < 32+offset; z++){
+                //Compare bytes 1 at a time and change back to uchars
                 unsigned long powerTwo = pow(2,p);
                 if((powerTwo & intLine[a]) == powerTwo) { line[z] = 0;}
                 else { line[z] = 255;}
