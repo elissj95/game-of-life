@@ -5,9 +5,9 @@
 // Takes in the Grid, line and linenum and encodes that line of the Grid to be the binary line given in.
 struct byteGrid addlinetogrid(struct byteGrid grid, unsigned char line[], int lineNum){
     int counter = 0;
-    struct byteGrid test;
+
     for(int i = 0; i<IMWD/32; i++) { //zero line before writing to it
-        test.board[lineNum][i] = 0;
+        grid.board[lineNum][i] = 0;
     }
 
     for (int j = 0; j<IMWD ; j++){
@@ -15,10 +15,11 @@ struct byteGrid addlinetogrid(struct byteGrid grid, unsigned char line[], int li
             counter++;
         }
         if(line[j] == 0){
-            test.board[lineNum][counter] = test.board[lineNum][counter] + pow(2,((31)-j%32));
+            grid.board[lineNum][counter] = grid.board[lineNum][counter] + pow(2,((31)-j%32));
         }
     }
-    return test;
+    return grid;
+
 }
 
 //Takes in a Grid and sets all the values to 0, all 64x64 entries. Then returns the Grid.

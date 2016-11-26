@@ -8,8 +8,8 @@
 //#include "i2c.h"
 #include "pack.h"
 
-#define  IMHT 256                 //image height
-#define  IMWD 256                  //image width
+#define  IMHT 64                 //image height
+#define  IMWD 64                  //image width
 
 typedef unsigned char uchar;      //using uchar as shorthand
 
@@ -46,12 +46,15 @@ void DataInStream(char infname[], chanend c_out) {
         _readinline( line, IMWD );
         grid = addlinetogrid(grid, line, y);
     }
+
     //Send each element of grid to distributor
     for( int y = 0; y< IMHT;y++){
         for(int x = 0; x<(IMWD/32) ;x++){
+            printf("%lu -", grid.board[y][x]);
             c_out <: grid.board[y][x];
         }
-       }
+        printf("\n");
+    }
     //Close PGM image file
     _closeinpgm();
     printf( "DataInStream: Done...\n" );
@@ -165,7 +168,7 @@ int main(void) {
 
 //i2c_master_if i2c[1];               //interface to orientation
 
-char infname[] = "256x256.pgm";     //put your input image path here
+char infname[] = "64x64.pgm";     //put your input image path here
 char outfname[] = "testout.pgm"; //put your output image path here
 chan c_inIO, c_outIO, c_control;    //extend your channel definitions here
 
