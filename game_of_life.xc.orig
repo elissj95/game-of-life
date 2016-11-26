@@ -5,11 +5,19 @@
 #include <stdio.h>
 #include <math.h>
 #include "pgmIO.h"
+<<<<<<< HEAD
 //#include "i2c.h"
 #include "pack.h"
 
 #define  IMHT 256                 //image height
 #define  IMWD 256                  //image width
+=======
+#include "i2c.h"
+#include "pack.h"
+
+#define  IMHT 64                 //image height
+#define  IMWD 64                  //image width
+>>>>>>> fc42e9d62ba9f9cf48c247b6343f709f01e6c5f0
 
 typedef unsigned char uchar;      //using uchar as shorthand
 
@@ -45,13 +53,38 @@ void DataInStream(char infname[], chanend c_out) {
     for( int y = 0; y < IMHT; y++ ) {
         _readinline( line, IMWD );
         grid = addlinetogrid(grid, line, y);
+<<<<<<< HEAD
     }
+
     //Send each element of grid to distributor
     for( int y = 0; y< IMHT;y++){
         for(int x = 0; x<(IMWD/32) ;x++){
             c_out <: grid.board[y][x];
         }
-       }
+    }
+=======
+        }
+
+
+    for( int y = 0; y< IMHT;y++){
+    for(int x = 0; x<(IMWD/32) ;x++){
+           c_out <: grid.board[y][x];
+    }
+    }
+    for( int y = 0; y< IMHT;y++){
+             for(int x = 0; x<(IMWD/32) ;x++){
+                   printf("%lu--", grid.board[y][x]);
+             }
+             printf("\n");
+             }
+        /*for( int x = 0; x < IMWD; x++ ) {
+            if(line[x]==255) {line[x] = 0;} //Not sure why it read in 64x64 images inverted?? This swaps them back
+            else{ line[x] = 255;}
+            c_out <: line[ x ];
+        }*/
+
+
+>>>>>>> fc42e9d62ba9f9cf48c247b6343f709f01e6c5f0
     //Close PGM image file
     _closeinpgm();
     printf( "DataInStream: Done...\n" );
@@ -61,19 +94,27 @@ void DataInStream(char infname[], chanend c_out) {
 // Distributes work to worker threads
 void distributor(chanend c_in, chanend c_out, chanend fromAcc){
 
+<<<<<<< HEAD
+=======
+    unsigned char intLine[IMWD];
+>>>>>>> fc42e9d62ba9f9cf48c247b6343f709f01e6c5f0
     struct byteGrid grid;
 
     //Starting up and wait for tilting of the xCore-200 Explorer
     printf( "ProcessImage: Start, size = %dx%d\n", IMHT, IMWD );
     printf( "Processing...\n" );
 
+<<<<<<< HEAD
     //Populate grid with values from DataIn
+=======
+>>>>>>> fc42e9d62ba9f9cf48c247b6343f709f01e6c5f0
     for( int y = 0; y < IMHT; y++ ) {   //go through all lines
         for( int x = 0; x < (IMWD/32); x++ ) { //go through each pixel per line
             c_in :> grid.board[y][x];   //read the pixel value
         }
     }
 
+<<<<<<< HEAD
     //Evolve grid
     grid = worker(grid);
 
@@ -81,6 +122,14 @@ void distributor(chanend c_in, chanend c_out, chanend fromAcc){
         for(int y = 0; y < IMWD/32; y++) {
             c_out <: grid.board[x][y];
         }
+=======
+    grid = worker(grid);
+
+    for(int x = 0; x < IMHT; x++) {
+      for(int y = 0; y < IMWD/32; y++) {
+        c_out <: grid.board[x][y];
+      }
+>>>>>>> fc42e9d62ba9f9cf48c247b6343f709f01e6c5f0
     }
     printf( "\nOne processing round completed...\n" );
 }
@@ -108,17 +157,32 @@ void DataOutStream(char outfname[], chanend c_in){
         }
         offset = 0;
         for(int a = 0; a < IMWD/32; a++) {
+<<<<<<< HEAD
             int p = 32-1;
             for(int z = offset; z < 32+offset; z++){
                 unsigned long powerTwo = pow(2,p);
                 if((powerTwo & intLine[a]) == powerTwo) { line[z] = 0;}
                 else { line[z] = 255;}
+=======
+
+            int p = 32-1;
+            for(int z = offset; z < 32+offset; z++){
+
+                unsigned long powerTwo = pow(2,p);
+                if((powerTwo & intLine[a]) == powerTwo) { line[z] = 255;}
+                else { line[z] = 0;}
+
+>>>>>>> fc42e9d62ba9f9cf48c247b6343f709f01e6c5f0
                 p--;
             }
             offset+=32;
         }
         _writeoutline( line, IMWD );
+<<<<<<< HEAD
         //printf( "DataOutStream: Line written...\n" );
+=======
+        printf( "DataOutStream: Line written...\n" );
+>>>>>>> fc42e9d62ba9f9cf48c247b6343f709f01e6c5f0
     }
     //Close the PGM image
     _closeoutpgm();
@@ -163,14 +227,24 @@ void DataOutStream(char outfname[], chanend c_in){
 // Orchestrate concurrent system and start up all threads
 int main(void) {
 
+<<<<<<< HEAD
 //i2c_master_if i2c[1];               //interface to orientation
 
 char infname[] = "256x256.pgm";     //put your input image path here
+=======
+i2c_master_if i2c[1];               //interface to orientation
+
+char infname[] = "64x64.pgm";     //put your input image path here
+>>>>>>> fc42e9d62ba9f9cf48c247b6343f709f01e6c5f0
 char outfname[] = "testout.pgm"; //put your output image path here
 chan c_inIO, c_outIO, c_control;    //extend your channel definitions here
 
 par {
+<<<<<<< HEAD
   //  i2c_master(i2c, 1, p_scl, p_sda, 10);   //server thread providing orientation data
+=======
+    i2c_master(i2c, 1, p_scl, p_sda, 10);   //server thread providing orientation data
+>>>>>>> fc42e9d62ba9f9cf48c247b6343f709f01e6c5f0
   //  orientation(i2c[0],c_control);        //client thread reading orientation data
     DataInStream(infname, c_inIO);          //thread to read in a PGM image
     DataOutStream(outfname, c_outIO);       //thread to write out a PGM image
