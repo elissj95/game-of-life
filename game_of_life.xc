@@ -50,10 +50,8 @@ void DataInStream(char infname[], chanend c_out) {
     //Send each element of grid to distributor
     for( int y = 0; y< IMHT;y++){
         for(int x = 0; x<(IMWD/32) ;x++){
-            printf("%lu -", grid.board[y][x]);
             c_out <: grid.board[y][x];
         }
-        printf("\n");
     }
     //Close PGM image file
     _closeinpgm();
