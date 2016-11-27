@@ -96,10 +96,15 @@ void distributor(chanend c_in, chanend c_out, chanend fromAcc, chanend fromButto
     struct byteGrid grid;
     int buttonInput;
     int stopEvolving = 0;
+    int rounds = 0;
+    int value;
 
     //Starting up and wait for tilting of the xCore-200 Explorer
     printf( "ProcessImage: Start, size = %dx%d\n", IMHT, IMWD );
+    toLEDs <: 4;
     printf( "Processing...\n" );
+  //  printf("Waiting for bard tilt...")
+  //  fromAcc :> int value;
 
     //Populate grid with values from DataIn
     for( int y = 0; y < IMHT; y++ ) {   //go through all lines
@@ -108,20 +113,22 @@ void distributor(chanend c_in, chanend c_out, chanend fromAcc, chanend fromButto
         }
     }
 
+    //Serve button input
     while (!stopEvolving) {
         select {
             case fromButtons :> buttonInput: //expect values 13 and 14
                 //Run another round
                 if(buttonInput == 14) {
-                    toLEDs <: 1;
+                    toLEDs <: 5;
                     //Evolve grid
                     grid = worker(grid);
-                    toLEDs <: 0;
+                    toLEDs <: 4;
+                    rounds++;
                     printf( "\nOne processing round completed...\n" );
                 }
                 //End processing
                 if(buttonInput == 13) {
-                    toLEDs <: 2;
+                    toLEDs <: 6;
                     for(int x = 0; x < IMHT; x++) {
                         for(int y = 0; y < IMWD/32; y++) {
                             c_out <: grid.board[x][y];
@@ -131,6 +138,11 @@ void distributor(chanend c_in, chanend c_out, chanend fromAcc, chanend fromButto
                     stopEvolving = 1;
                 }
                 break;
+                /*
+            case fromAcc :> 1:
+                printf("Board tilted, processing paused...");
+                printf("%d round completed so far", rounds);
+                */
         }
     }
 }
@@ -178,7 +190,7 @@ void DataOutStream(chanend c_in){
 }
 
 // Initialise and  read orientation, send first tilt event to channel
-/*void orientation( client interface i2c_master_if i2c, chanend toDist) {
+/*void orientation( client interface i2c_master_if i2c, chanend toDistributor) {
     i2c_regop_res_t result;
     char status_data = 0;
     int tilted = 0;
@@ -204,7 +216,7 @@ void DataOutStream(chanend c_in){
         if (!tilted) {
             if (x>30) {
                 tilted = 1 - tilted;
-                toDist <: 1;
+                toDistributor <: 1;
             }
         }
     }
@@ -215,8 +227,6 @@ void DataOutStream(chanend c_in){
 int main(void) {
 
 //i2c_master_if i2c[1];               //interface to orientation
-//char infname[] = "64x64.pgm";     //put your input image path here
-//char outfname[] = "testout.pgm"; //put your output image path here
 
 chan c_inIO, c_outIO, c_control, buttonsToDistributor, distributorToLEDs;    //extend your channel definitions here
 
