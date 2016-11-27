@@ -7,16 +7,6 @@
 #include "pgmIO.h"
 //#include "i2c.h"
 #include "pack.h"
-#include "boardIO.h"
-
-on tile[0] : in port buttons = XS1_PORT_4E; //port to access xCore-200 buttons
-
-/*
-Button SW1: This button should start the reading and processing
-of an image, indicate reading by lighting the green LED, indicate
-ongoing processing by flashing of the other, separate green LED
-alternating its state once per processing round over the image.
-*/
 
 #define  IMHT 64                 //image height
 #define  IMWD 64                  //image width
@@ -25,6 +15,8 @@ typedef unsigned char uchar;      //using uchar as shorthand
 
 on tile[0]: port p_scl = XS1_PORT_1E;         //interface ports to orientation
 on tile[0]: port p_sda = XS1_PORT_1F;
+on tile[0]: in port buttons = XS1_PORT_4E; //port to access buttons
+on tile[0]: out port leds = XS1_PORT_4F;   //port to access LEDs
 
 #define FXOS8700EQ_I2C_ADDR 0x1E  //register addresses for orientation
 #define FXOS8700EQ_XYZ_DATA_CFG_REG 0x0E
@@ -37,6 +29,20 @@ on tile[0]: port p_sda = XS1_PORT_1F;
 #define FXOS8700EQ_OUT_Z_MSB 0x5
 #define FXOS8700EQ_OUT_Z_LSB 0x6
 
+//Display LED patterns
+int showLEDs(out port p, chanend fromDistributor) {
+  int pattern; //1st bit...separate green LED
+               //2nd bit...blue LED
+               //3rd bit...green LED
+               //4th bit...red LED
+  while (1) {
+    fromDistributor :> pattern;   //receive new pattern from visualiser
+    p <: pattern;                //send pattern to LED port
+  }
+  return 0;
+}
+
+//Read buttons and send to the distributor
 void buttonListener(in port b, chanend toDistributor) {
     int r;
 
@@ -85,7 +91,7 @@ void DataInStream(chanend c_out) {
 }
 
 // Distributes work to worker threads
-void distributor(chanend c_in, chanend c_out, chanend fromAcc, chanend fromButtons){
+void distributor(chanend c_in, chanend c_out, chanend fromAcc, chanend fromButtons, chanend toLEDs){
 
     struct byteGrid grid;
     int buttonInput;
@@ -101,24 +107,27 @@ void distributor(chanend c_in, chanend c_out, chanend fromAcc, chanend fromButto
             c_in :> grid.board[y][x];   //read the pixel value
         }
     }
-    printf("Control available...");
 
     while (!stopEvolving) {
         select {
             case fromButtons :> buttonInput: //expect values 13 and 14
                 //Run another round
                 if(buttonInput == 14) {
+                    toLEDs <: 1;
                     //Evolve grid
                     grid = worker(grid);
+                    toLEDs <: 0;
                     printf( "\nOne processing round completed...\n" );
                 }
                 //End processing
                 if(buttonInput == 13) {
+                    toLEDs <: 2;
                     for(int x = 0; x < IMHT; x++) {
                         for(int y = 0; y < IMWD/32; y++) {
                             c_out <: grid.board[x][y];
                         }
                     }
+                    toLEDs <: 0;
                     stopEvolving = 1;
                 }
                 break;
@@ -209,16 +218,17 @@ int main(void) {
 //char infname[] = "64x64.pgm";     //put your input image path here
 //char outfname[] = "testout.pgm"; //put your output image path here
 
-chan c_inIO, c_outIO, c_control, buttonsToDistributor;    //extend your channel definitions here
+chan c_inIO, c_outIO, c_control, buttonsToDistributor, distributorToLEDs;    //extend your channel definitions here
 
 par {
   //  i2c_master(i2c, 1, p_scl, p_sda, 10);   //server thread providing orientation data
   //  orientation(i2c[0],c_control);        //client thread reading orientation data
     on tile[1]: DataInStream(c_inIO);          //thread to read in a PGM image
     on tile[1]: DataOutStream(c_outIO);       //thread to write out a PGM image
-    on tile[1]: distributor(c_inIO, c_outIO, c_control, buttonsToDistributor);//thread to coordinate work on image
+    on tile[1]: distributor(c_inIO, c_outIO, c_control, buttonsToDistributor, distributorToLEDs);//thread to coordinate work on image
 
     on tile[0]: buttonListener(buttons, buttonsToDistributor);
+    on tile[0]: showLEDs(leds, distributorToLEDs);
     }
 
   return 0;
