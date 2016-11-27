@@ -93,18 +93,22 @@ void DataInStream(chanend c_out) {
 // Distributes work to worker threads
 void distributor(chanend c_in, chanend c_out, chanend fromAcc, chanend fromButtons, chanend toLEDs){
 
+    timer tmr;
     struct byteGrid grid;
     int buttonInput;
     int stopEvolving = 0;
     int rounds = 0;
     int value;
+    float time;
+    float timeDiff;
 
     //Starting up and wait for tilting of the xCore-200 Explorer
+    tmr :> time;
     printf( "ProcessImage: Start, size = %dx%d\n", IMHT, IMWD );
-    toLEDs <: 4;
+    toLEDs <: 1;
     printf( "Processing...\n" );
-  //  printf("Waiting for bard tilt...")
-  //  fromAcc :> int value;
+  //  printf("Waiting for board tilt...")
+  //  fromAcc :> int value;b
 
     //Populate grid with values from DataIn
     for( int y = 0; y < IMHT; y++ ) {   //go through all lines
@@ -113,6 +117,13 @@ void distributor(chanend c_in, chanend c_out, chanend fromAcc, chanend fromButto
         }
     }
 
+    //Take current time and compare to time at beginning, print difference
+    tmr :> timeDiff;
+    time = (timeDiff - time) / 100000000;
+    printf("Processing the image took %f seconds.\n", time);
+
+    toLEDs <: 0;
+
     //Serve button input
     while (!stopEvolving) {
         select {
@@ -120,20 +131,30 @@ void distributor(chanend c_in, chanend c_out, chanend fromAcc, chanend fromButto
                 //Run another round
                 if(buttonInput == 14) {
                     toLEDs <: 5;
+                    tmr :> time;
                     //Evolve grid
                     grid = worker(grid);
-                    toLEDs <: 4;
+                    tmr :> timeDiff;
+
+                    tmr :> timeDiff;
+                    time = (timeDiff - time) / 100000000;
+                    printf("Processing that round took %f seconds.\n", time);
+                    toLEDs <: 1;
                     rounds++;
-                    printf( "\nOne processing round completed...\n" );
+                    printf( "One processing round completed...\n" );
                 }
                 //End processing
                 if(buttonInput == 13) {
                     toLEDs <: 6;
+                    tmr :> time;
                     for(int x = 0; x < IMHT; x++) {
                         for(int y = 0; y < IMWD/32; y++) {
                             c_out <: grid.board[x][y];
                         }
                     }
+                    tmr :> timeDiff;
+                    time = (timeDiff - time) / 100000000;
+                    printf("Processing back to an image took %f seconds.\n", time);
                     toLEDs <: 0;
                     stopEvolving = 1;
                 }
