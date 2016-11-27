@@ -5,8 +5,8 @@
 #include <stdio.h>
 #include <string.h>
 
-#define IMWD 128
-#define IMHT 128
+#define IMWD 64
+#define IMHT 64
 
 struct byteGrid {
     unsigned long board[IMHT][IMWD/32];

@@ -7,9 +7,9 @@
 #include "pgmIO.h"
 //#include "i2c.h"
 #include "pack.h"
+#include "boardIO.h"
 
 on tile[0] : in port buttons = XS1_PORT_4E; //port to access xCore-200 buttons
-on tile[0] : out port leds = XS1_PORT_4F;   //port to access xCore-200 LEDs
 
 /*
 Button SW1: This button should start the reading and processing
@@ -18,13 +18,13 @@ ongoing processing by flashing of the other, separate green LED
 alternating its state once per processing round over the image.
 */
 
-#define  IMHT 128                 //image height
-#define  IMWD 128                  //image width
+#define  IMHT 64                 //image height
+#define  IMWD 64                  //image width
 
 typedef unsigned char uchar;      //using uchar as shorthand
 
-port p_scl = XS1_PORT_1E;         //interface ports to orientation
-port p_sda = XS1_PORT_1F;
+on tile[0]: port p_scl = XS1_PORT_1E;         //interface ports to orientation
+on tile[0]: port p_sda = XS1_PORT_1F;
 
 #define FXOS8700EQ_I2C_ADDR 0x1E  //register addresses for orientation
 #define FXOS8700EQ_XYZ_DATA_CFG_REG 0x0E
@@ -37,11 +37,26 @@ port p_sda = XS1_PORT_1F;
 #define FXOS8700EQ_OUT_Z_MSB 0x5
 #define FXOS8700EQ_OUT_Z_LSB 0x6
 
+void buttonListener(in port b, chanend toDistributor) {
+    int r;
+
+    while (1) {
+        b when pinseq(15)  :> r;    // check that no button is pressed
+        b when pinsneq(15) :> r;    // check if some buttons are pressed
+        if ((r==13) || (r==14)) {    // if either button is pressed
+           toDistributor <: r;             // send button pattern to distributor
+        }
+    }
+}
+
+
 // Read Image from PGM file from path infname[] to channel c_out
-void DataInStream(char infname[], chanend c_out) {
+void DataInStream(chanend c_out) {
     int res;
     uchar line[ IMWD ];
     struct byteGrid grid;
+    char infname[] = "64x64.pgm";
+
     printf( "DataInStream: Start...\n" );
 
     //Open PGM file
@@ -70,9 +85,11 @@ void DataInStream(char infname[], chanend c_out) {
 }
 
 // Distributes work to worker threads
-void distributor(chanend c_in, chanend c_out, chanend fromAcc){
+void distributor(chanend c_in, chanend c_out, chanend fromAcc, chanend fromButtons){
 
     struct byteGrid grid;
+    int buttonInput;
+    int stopEvolving = 0;
 
     //Starting up and wait for tilting of the xCore-200 Explorer
     printf( "ProcessImage: Start, size = %dx%d\n", IMHT, IMWD );
@@ -84,25 +101,39 @@ void distributor(chanend c_in, chanend c_out, chanend fromAcc){
             c_in :> grid.board[y][x];   //read the pixel value
         }
     }
+    printf("Control available...");
 
-    //Evolve grid
-    grid = worker(grid);
-
-    for(int x = 0; x < IMHT; x++) {
-        for(int y = 0; y < IMWD/32; y++) {
-            c_out <: grid.board[x][y];
+    while (!stopEvolving) {
+        select {
+            case fromButtons :> buttonInput: //expect values 13 and 14
+                //Run another round
+                if(buttonInput == 14) {
+                    //Evolve grid
+                    grid = worker(grid);
+                    printf( "\nOne processing round completed...\n" );
+                }
+                //End processing
+                if(buttonInput == 13) {
+                    for(int x = 0; x < IMHT; x++) {
+                        for(int y = 0; y < IMWD/32; y++) {
+                            c_out <: grid.board[x][y];
+                        }
+                    }
+                    stopEvolving = 1;
+                }
+                break;
         }
     }
-    printf( "\nOne processing round completed...\n" );
 }
 
 // Write pixel stream from channel c_in to PGM image file
-void DataOutStream(char outfname[], chanend c_in){
+void DataOutStream(chanend c_in){
 
     int offset;
     int res;
     uchar line[ IMWD ];
     unsigned long intLine[IMWD/32];
+    char outfname[] = "testout.pgm";
 
     //Open PGM file
     printf( "DataOutStream: Start...\n" );
@@ -175,18 +206,20 @@ void DataOutStream(char outfname[], chanend c_in){
 int main(void) {
 
 //i2c_master_if i2c[1];               //interface to orientation
+//char infname[] = "64x64.pgm";     //put your input image path here
+//char outfname[] = "testout.pgm"; //put your output image path here
 
-char infname[] = "128x128.pgm";     //put your input image path here
-char outfname[] = "testout.pgm"; //put your output image path here
-chan c_inIO, c_outIO, c_control;    //extend your channel definitions here
+chan c_inIO, c_outIO, c_control, buttonsToDistributor;    //extend your channel definitions here
 
 par {
   //  i2c_master(i2c, 1, p_scl, p_sda, 10);   //server thread providing orientation data
   //  orientation(i2c[0],c_control);        //client thread reading orientation data
-    DataInStream(infname, c_inIO);          //thread to read in a PGM image
-    DataOutStream(outfname, c_outIO);       //thread to write out a PGM image
-    distributor(c_inIO, c_outIO, c_control);//thread to coordinate work on image
-  }
+    on tile[1]: DataInStream(c_inIO);          //thread to read in a PGM image
+    on tile[1]: DataOutStream(c_outIO);       //thread to write out a PGM image
+    on tile[1]: distributor(c_inIO, c_outIO, c_control, buttonsToDistributor);//thread to coordinate work on image
+
+    on tile[0]: buttonListener(buttons, buttonsToDistributor);
+    }
 
   return 0;
 }
