@@ -8,8 +8,8 @@
 //#include "i2c.h"
 #include "pack.h"
 
-#define  IMHT 64                 //image height
-#define  IMWD 64                  //image width
+#define  IMHT 256                  //image height
+#define  IMWD 256                  //image width
 
 typedef unsigned char uchar;      //using uchar as shorthand
 
@@ -61,7 +61,7 @@ void DataInStream(chanend c_out) {
     int res;
     uchar line[ IMWD ];
     struct byteGrid grid;
-    char infname[] = "64x64.pgm";
+    char infname[] = "256x256.pgm";
 
     printf( "DataInStream: Start...\n" );
 
@@ -134,8 +134,6 @@ void distributor(chanend c_in, chanend c_out, chanend fromAcc, chanend fromButto
                     tmr :> time;
                     //Evolve grid
                     grid = worker(grid);
-                    tmr :> timeDiff;
-
                     tmr :> timeDiff;
                     time = (timeDiff - time) / 100000000;
                     printf("Processing that round took %f seconds.\n", time);

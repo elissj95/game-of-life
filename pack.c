@@ -105,7 +105,7 @@ struct byteGrid worker(struct byteGrid grid){
     //Create a new Grid to operate on
     //Iterate through the Grid passed in
     for(int y = 0; y<IMHT ; y++){
-        for(int x = 0; x<2 ; x++){
+        for(int x = 0; x<IMWD/32 ; x++){
             unsigned long val = grid.board[y][x];
             //Iterate through each number
             for(int i = 31; i>-1 ;i--){
