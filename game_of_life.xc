@@ -13,8 +13,10 @@
 
 typedef unsigned char uchar;      //using uchar as shorthand
 
-port p_scl = XS1_PORT_1E;         //interface ports to orientation
-port p_sda = XS1_PORT_1F;
+on tile[0]: port p_scl = XS1_PORT_1E;         //interface ports to orientation
+on tile[0]: port p_sda = XS1_PORT_1F;
+on tile[0]: in port buttons = XS1_PORT_4E; //port to access buttons
+on tile[0]: out port leds = XS1_PORT_4F;   //port to access LEDs
 
 #define FXOS8700EQ_I2C_ADDR 0x1E  //register addresses for orientation
 #define FXOS8700EQ_XYZ_DATA_CFG_REG 0x0E
@@ -27,11 +29,40 @@ port p_sda = XS1_PORT_1F;
 #define FXOS8700EQ_OUT_Z_MSB 0x5
 #define FXOS8700EQ_OUT_Z_LSB 0x6
 
+//Display LED patterns
+int showLEDs(out port p, chanend fromDistributor) {
+  int pattern; //1st bit...separate green LED
+               //2nd bit...blue LED
+               //3rd bit...green LED
+               //4th bit...red LED
+  while (1) {
+    fromDistributor :> pattern;   //receive new pattern from visualiser
+    p <: pattern;                //send pattern to LED port
+  }
+  return 0;
+}
+
+//Read buttons and send to the distributor
+void buttonListener(in port b, chanend toDistributor) {
+    int r;
+
+    while (1) {
+        b when pinseq(15)  :> r;    // check that no button is pressed
+        b when pinsneq(15) :> r;    // check if some buttons are pressed
+        if ((r==13) || (r==14)) {    // if either button is pressed
+           toDistributor <: r;             // send button pattern to distributor
+        }
+    }
+}
+
+
 // Read Image from PGM file from path infname[] to channel c_out
-void DataInStream(char infname[], chanend c_out) {
+void DataInStream(chanend c_out) {
     int res;
     uchar line[ IMWD ];
     struct byteGrid grid;
+    char infname[] = "64x64.pgm";
+
     printf( "DataInStream: Start...\n" );
 
     //Open PGM file
@@ -60,13 +91,24 @@ void DataInStream(char infname[], chanend c_out) {
 }
 
 // Distributes work to worker threads
-void distributor(chanend c_in, chanend c_out, chanend fromAcc){
+void distributor(chanend c_in, chanend c_out, chanend fromAcc, chanend fromButtons, chanend toLEDs){
 
+    timer tmr;
     struct byteGrid grid;
+    int buttonInput;
+    int stopEvolving = 0;
+    int rounds = 0;
+    int value;
+    float time;
+    float timeDiff;
 
     //Starting up and wait for tilting of the xCore-200 Explorer
+    tmr :> time;
     printf( "ProcessImage: Start, size = %dx%d\n", IMHT, IMWD );
+    toLEDs <: 1;
     printf( "Processing...\n" );
+  //  printf("Waiting for board tilt...")
+  //  fromAcc :> int value;b
 
     //Populate grid with values from DataIn
     for( int y = 0; y < IMHT; y++ ) {   //go through all lines
@@ -75,24 +117,65 @@ void distributor(chanend c_in, chanend c_out, chanend fromAcc){
         }
     }
 
-    //Evolve grid
-    grid = worker(grid);
+    //Take current time and compare to time at beginning, print difference
+    tmr :> timeDiff;
+    time = (timeDiff - time) / 100000000;
+    printf("Processing the image took %f seconds.\n", time);
 
-    for(int x = 0; x < IMHT; x++) {
-        for(int y = 0; y < IMWD/32; y++) {
-            c_out <: grid.board[x][y];
+    toLEDs <: 0;
+
+    //Serve button input
+    while (!stopEvolving) {
+        select {
+            case fromButtons :> buttonInput: //expect values 13 and 14
+                //Run another round
+                if(buttonInput == 14) {
+                    toLEDs <: 5;
+                    tmr :> time;
+                    //Evolve grid
+                    grid = worker(grid);
+                    tmr :> timeDiff;
+
+                    tmr :> timeDiff;
+                    time = (timeDiff - time) / 100000000;
+                    printf("Processing that round took %f seconds.\n", time);
+                    toLEDs <: 1;
+                    rounds++;
+                    printf( "One processing round completed...\n" );
+                }
+                //End processing
+                if(buttonInput == 13) {
+                    toLEDs <: 6;
+                    tmr :> time;
+                    for(int x = 0; x < IMHT; x++) {
+                        for(int y = 0; y < IMWD/32; y++) {
+                            c_out <: grid.board[x][y];
+                        }
+                    }
+                    tmr :> timeDiff;
+                    time = (timeDiff - time) / 100000000;
+                    printf("Processing back to an image took %f seconds.\n", time);
+                    toLEDs <: 0;
+                    stopEvolving = 1;
+                }
+                break;
+                /*
+            case fromAcc :> 1:
+                printf("Board tilted, processing paused...");
+                printf("%d round completed so far", rounds);
+                */
         }
     }
-    printf( "\nOne processing round completed...\n" );
 }
 
 // Write pixel stream from channel c_in to PGM image file
-void DataOutStream(char outfname[], chanend c_in){
+void DataOutStream(chanend c_in){
 
     int offset;
     int res;
     uchar line[ IMWD ];
     unsigned long intLine[IMWD/32];
+    char outfname[] = "testout.pgm";
 
     //Open PGM file
     printf( "DataOutStream: Start...\n" );
@@ -129,7 +212,7 @@ void DataOutStream(char outfname[], chanend c_in){
 }
 
 // Initialise and  read orientation, send first tilt event to channel
-/*void orientation( client interface i2c_master_if i2c, chanend toDist) {
+/*void orientation( client interface i2c_master_if i2c, chanend toDistributor) {
     i2c_regop_res_t result;
     char status_data = 0;
     int tilted = 0;
@@ -155,7 +238,7 @@ void DataOutStream(char outfname[], chanend c_in){
         if (!tilted) {
             if (x>30) {
                 tilted = 1 - tilted;
-                toDist <: 1;
+                toDistributor <: 1;
             }
         }
     }
@@ -167,17 +250,18 @@ int main(void) {
 
 //i2c_master_if i2c[1];               //interface to orientation
 
-char infname[] = "64x64.pgm";     //put your input image path here
-char outfname[] = "testout.pgm"; //put your output image path here
-chan c_inIO, c_outIO, c_control;    //extend your channel definitions here
+chan c_inIO, c_outIO, c_control, buttonsToDistributor, distributorToLEDs;    //extend your channel definitions here
 
 par {
   //  i2c_master(i2c, 1, p_scl, p_sda, 10);   //server thread providing orientation data
   //  orientation(i2c[0],c_control);        //client thread reading orientation data
-    DataInStream(infname, c_inIO);          //thread to read in a PGM image
-    DataOutStream(outfname, c_outIO);       //thread to write out a PGM image
-    distributor(c_inIO, c_outIO, c_control);//thread to coordinate work on image
-  }
+    on tile[1]: DataInStream(c_inIO);          //thread to read in a PGM image
+    on tile[1]: DataOutStream(c_outIO);       //thread to write out a PGM image
+    on tile[1]: distributor(c_inIO, c_outIO, c_control, buttonsToDistributor, distributorToLEDs);//thread to coordinate work on image
+
+    on tile[0]: buttonListener(buttons, buttonsToDistributor);
+    on tile[0]: showLEDs(leds, distributorToLEDs);
+    }
 
   return 0;
 }
