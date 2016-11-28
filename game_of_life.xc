@@ -8,8 +8,8 @@
 //#include "i2c.h"
 #include "pack.h"
 
-#define  IMHT 256                  //image height
-#define  IMWD 256                  //image width
+#define  IMHT 256                 //image height
+#define  IMWD 256                 //image width
 
 typedef unsigned char uchar;      //using uchar as shorthand
 
@@ -37,7 +37,7 @@ int showLEDs(out port p, chanend fromDistributor) {
                //4th bit...red LED
   while (1) {
     fromDistributor :> pattern;   //receive new pattern from visualiser
-    p <: pattern;                //send pattern to LED port
+    p <: pattern;                 //send pattern to LED port
   }
   return 0;
 }
@@ -47,10 +47,10 @@ void buttonListener(in port b, chanend toDistributor) {
     int r;
 
     while (1) {
-        b when pinseq(15)  :> r;    // check that no button is pressed
-        b when pinsneq(15) :> r;    // check if some buttons are pressed
+        b when pinseq(15)  :> r;     // check that no button is pressed
+        b when pinsneq(15) :> r;     // check if some buttons are pressed
         if ((r==13) || (r==14)) {    // if either button is pressed
-           toDistributor <: r;             // send button pattern to distributor
+            toDistributor <: r;      // send button pattern to distributor
         }
     }
 }
@@ -98,17 +98,20 @@ void distributor(chanend c_in, chanend c_out, chanend fromAcc, chanend fromButto
     int buttonInput;
     int stopEvolving = 0;
     int rounds = 0;
-    int value;
     float time;
     float timeDiff;
+
+    //Initialise subgrids
+    struct subGrid grid1;
+    struct subGrid grid2;
+    struct subGrid grid3;
+    struct subGrid grid4;
 
     //Starting up and wait for tilting of the xCore-200 Explorer
     tmr :> time;
     printf( "ProcessImage: Start, size = %dx%d\n", IMHT, IMWD );
     toLEDs <: 1;
     printf( "Processing...\n" );
-  //  printf("Waiting for board tilt...")
-  //  fromAcc :> int value;b
 
     //Populate grid with values from DataIn
     for( int y = 0; y < IMHT; y++ ) {   //go through all lines
@@ -124,16 +127,31 @@ void distributor(chanend c_in, chanend c_out, chanend fromAcc, chanend fromButto
 
     toLEDs <: 0;
 
+    grid1 = divideGrid(grid, 1);
+    grid2 = divideGrid(grid, 2);
+    grid3 = divideGrid(grid, 3);
+    grid4 = divideGrid(grid, 4);
+
     //Serve button input
     while (!stopEvolving) {
         select {
             case fromButtons :> buttonInput: //expect values 13 and 14
                 //Run another round
                 if(buttonInput == 14) {
+
                     toLEDs <: 5;
                     tmr :> time;
                     //Evolve grid
-                    grid = worker(grid);
+                    //grid = worker(grid);
+
+                    par{
+                        grid1 = worker(grid1);
+                        grid2 = worker(grid2);
+                        grid3 = worker(grid3);
+                        grid4 = worker(grid4);
+                    }
+
+
                     tmr :> timeDiff;
                     time = (timeDiff - time) / 100000000;
                     printf("Processing that round took %f seconds.\n", time);
@@ -145,6 +163,8 @@ void distributor(chanend c_in, chanend c_out, chanend fromAcc, chanend fromButto
                 if(buttonInput == 13) {
                     toLEDs <: 6;
                     tmr :> time;
+                    printf("Outputting...\n");
+                    grid = undivideGrid(grid1, grid2, grid3, grid4);
                     for(int x = 0; x < IMHT; x++) {
                         for(int y = 0; y < IMWD/32; y++) {
                             c_out <: grid.board[x][y];
@@ -152,7 +172,7 @@ void distributor(chanend c_in, chanend c_out, chanend fromAcc, chanend fromButto
                     }
                     tmr :> timeDiff;
                     time = (timeDiff - time) / 100000000;
-                    printf("Processing back to an image took %f seconds.\n", time);
+                    printf("Outputting to pgm took %f seconds.\n", time);
                     toLEDs <: 0;
                     stopEvolving = 1;
                 }
@@ -246,20 +266,19 @@ void DataOutStream(chanend c_in){
 // Orchestrate concurrent system and start up all threads
 int main(void) {
 
-//i2c_master_if i2c[1];               //interface to orientation
+    //i2c_master_if i2c[1];               //interface to orientation
 
-chan c_inIO, c_outIO, c_control, buttonsToDistributor, distributorToLEDs;    //extend your channel definitions here
+    chan c_inIO, c_outIO, c_control, buttonsToDistributor, distributorToLEDs;    //extend your channel definitions here
 
-par {
-  //  i2c_master(i2c, 1, p_scl, p_sda, 10);   //server thread providing orientation data
-  //  orientation(i2c[0],c_control);        //client thread reading orientation data
-    on tile[1]: DataInStream(c_inIO);          //thread to read in a PGM image
-    on tile[1]: DataOutStream(c_outIO);       //thread to write out a PGM image
-    on tile[1]: distributor(c_inIO, c_outIO, c_control, buttonsToDistributor, distributorToLEDs);//thread to coordinate work on image
+    par {
+        //  i2c_master(i2c, 1, p_scl, p_sda, 10);   //server thread providing orientation data
+        //  orientation(i2c[0],c_control);        //client thread reading orientation data
+        on tile[1]: DataInStream(c_inIO);          //thread to read in a PGM image
+        on tile[1]: DataOutStream(c_outIO);       //thread to write out a PGM image
+        on tile[1]: distributor(c_inIO, c_outIO, c_control, buttonsToDistributor, distributorToLEDs);//thread to coordinate work on image
 
-    on tile[0]: buttonListener(buttons, buttonsToDistributor);
-    on tile[0]: showLEDs(leds, distributorToLEDs);
+        on tile[0]: buttonListener(buttons, buttonsToDistributor);
+        on tile[0]: showLEDs(leds, distributorToLEDs);
     }
-
-  return 0;
+    return 0;
 }

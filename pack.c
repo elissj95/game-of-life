@@ -2,6 +2,49 @@
 #include <math.h>
 #include <stdio.h>
 
+//Takes grid, and section, and returns that section of the grid with the two shadow rows above and below
+struct subGrid divideGrid(struct byteGrid grid, int section) {
+    struct subGrid subgrid;
+   //section 2 = 15 - 32
+    int base =  (((section - 1)*(IMHT/4))-1)%IMHT;
+
+    for(int x = 0; x < (IMHT/4)+2; x++){
+        for(int y = 0; y < IMWD/32; y++) {
+            subgrid.board[x][y] = grid.board[(x+base)%IMHT][y];
+        }
+    }
+    return subgrid;
+}
+
+//Takes four subgrids and returns one byteGrid
+struct byteGrid undivideGrid(struct subGrid grid1, struct subGrid grid2, struct subGrid grid3, struct subGrid grid4){
+    struct byteGrid grid;
+
+    //Add top subgrid to grid
+    for(int x = 0; x < IMHT/4; x++) {
+        for(int y = 0; y < IMWD/32; y++) {
+            grid.board[x][y] = grid1.board[x+1][y];
+        }
+    }
+    //Add second subgrid to grid etc.
+    for(int x = IMHT/4; x < IMHT/2; x++) {
+        for(int y = 0; y < IMWD/32; y++) {
+            grid.board[x][y] = grid2.board[x-IMHT/4+1][y];
+        }
+    }
+    for(int x = IMHT/2; x < 3*IMHT/4; x++) {
+        for(int y = 0; y < IMWD/32; y++) {
+            grid.board[x][y] = grid3.board[x-IMHT/2+1][y];
+        }
+    }
+    for(int x = 3*IMHT/4; x < IMHT; x++) {
+        for(int y = 0; y < IMWD/32; y++) {
+            grid.board[x][y] = grid4.board[x-(3*IMHT/4)+1][y];
+        }
+    }
+return grid;
+}
+
 // Takes in the Grid, line and linenum and encodes that line of the Grid to be the binary line given in.
 struct byteGrid addlinetogrid(struct byteGrid grid, unsigned char line[], int lineNum){
     int counter = 0;
@@ -21,19 +64,8 @@ struct byteGrid addlinetogrid(struct byteGrid grid, unsigned char line[], int li
     return grid;
 }
 
-//Takes in a Grid and sets all the values to 0, all 64x64 entries. Then returns the Grid.
-struct byteGrid setzerogrid(struct byteGrid grid){
-    struct byteGrid testGrid = grid;
-    for(int y = 0 ; y<IMHT ; y++){
-        for(int x = 0 ; x<IMWD ; x++){
-            testGrid.board[x][y] = 0;
-        }
-    }
-    return testGrid;
-}
-
 //Takes a pixel and determines how many of its surrounding pixels are alive
-int GridToNine(struct byteGrid grid, int ypos, int xpos, int i, int isdead){
+int GridToNine(struct subGrid grid, int ypos, int xpos, int i, int isdead){
     //Take 3 numbers, start from above and continuing to below
     unsigned long threerow[3];
     unsigned long test = 2147483648;
@@ -99,12 +131,12 @@ int GridToNine(struct byteGrid grid, int ypos, int xpos, int i, int isdead){
 }
 
 //Takes a grid and returns its evolved state
-struct byteGrid worker(struct byteGrid grid){
-    struct byteGrid test;
+struct subGrid worker(struct subGrid grid){
+    struct subGrid test;
     test = grid;
     //Create a new Grid to operate on
     //Iterate through the Grid passed in
-    for(int y = 0; y<IMHT ; y++){
+    for(int y = 1; y<IMHT/4 ; y++){
         for(int x = 0; x<IMWD/32 ; x++){
             unsigned long val = grid.board[y][x];
             //Iterate through each number
