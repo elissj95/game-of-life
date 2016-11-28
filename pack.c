@@ -5,7 +5,7 @@
 //Takes grid, and section, and returns that section of the grid with the two shadow rows above and below
 struct subGrid divideGrid(struct byteGrid grid, int section) {
     struct subGrid subgrid;
-   //section 2 = 15 - 32
+    //Where the sugrid will start
     int base =  (((section - 1)*(IMHT/4))-1)%IMHT;
 
     for(int x = 0; x < (IMHT/4)+2; x++){
