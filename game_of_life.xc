@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <math.h>
 #include "pgmIO.h"
-#include "i2c.h"
+//#include "i2c.h"
 #include "pack.h"
 
 #define  IMHT 64                 //image height
@@ -13,7 +13,7 @@
 
 typedef unsigned char uchar;      //using uchar as shorthand
 
-on tile[0]: port p_scl = XS1_PORT_1E;         //interface ports to orientation
+on tile[0]: port p_scl = XS1_PORT_1E;      //interface ports to orientation
 on tile[0]: port p_sda = XS1_PORT_1F;
 on tile[0]: in port buttons = XS1_PORT_4E; //port to access buttons
 on tile[0]: out port leds = XS1_PORT_4F;   //port to access LEDs
@@ -94,27 +94,22 @@ void DataInStream(chanend c_out) {
 struct subGrid worker(struct subGrid grid, chanend sendup, chanend senddown, chanend recieveabove, chanend recievebelow){
     struct subGrid test;
     test = grid;
-    //Create a new Grid to operate on
-    //Iterate through the Grid passed in
+    //Iterate through the Grid passed in starting at second line to avoid ghost row
     for(int y = 1; y<(IMHT/4)+1 ; y++){
         for(int x = 0; x<IMWD/32 ; x++){
             unsigned long val = grid.board[y][x];
             //Iterate through each number
             for(int i = 31; i>-1 ;i--){
                 unsigned long powerTwo = pow(2,i);
-                //Check for a 1
+                //Check if alive
                 if((powerTwo & val) == powerTwo){
-                    //Alive (1)
-                    //Returns true or false to update the cell
                     if(GridToNine(grid, y, x, i, 1) == 1){
+                        //If still alive, add 1 to grid
                         test.board[y][x] = test.board[y][x] - pow(2,i);
-                        // printf("ypos %d xpos %d i %d not alive\n", y, x, i);
                     }
                 }
-                //Check for a 0
+                //Check if dead
                 else if((powerTwo & ~val) == powerTwo){
-                    //Dead (0)
-                    //Returns true or false to update the cell
                     if(GridToNine(grid, y, x, i, 0) == 1){
                         test.board[y][x] = test.board[y][x] + pow(2,i);
                     }
@@ -133,8 +128,8 @@ void distributor(chanend c_in, chanend c_out, chanend fromAcc, chanend fromButto
     int buttonInput;
     int stopEvolving = 0;
     int rounds = 0;
-    uint64_t time;
-    uint64_t timeDiff;
+    unsigned time;
+    unsigned timeDiff;
 
     //Initialise subgrids
     struct subGrid grid1;
@@ -182,17 +177,37 @@ void distributor(chanend c_in, chanend c_out, chanend fromAcc, chanend fromButto
                     for(int x = 0;x<100;x++){
 
                         printf("Processing round %d\n", x);
-                    par{
-                        grid1 = worker(grid1, onedown, oneup, fourdown, twoup);
-                        grid2 = worker(grid2, twodown, twoup, onedown, threeup);
-                        grid3 = worker(grid3, threedown, threeup, twodown, fourup);
-                        grid4 = worker(grid4, fourdown, fourup, threedown, oneup);
-                    }
-                        grid = undivideGrid(grid1, grid2, grid3, grid4);
-                        grid1 = divideGrid(grid, 1);
-                        grid2 = divideGrid(grid, 2);
-                        grid3 = divideGrid(grid, 3);
-                        grid4 = divideGrid(grid, 4);
+                        par{
+                            grid1 = worker(grid1, onedown, oneup, fourdown, twoup);
+                            grid2 = worker(grid2, twodown, twoup, onedown, threeup);
+                            grid3 = worker(grid3, threedown, threeup, twodown, fourup);
+                            grid4 = worker(grid4, fourdown, fourup, threedown, oneup);
+                        }
+                        //Update ghost rows for each subgrid
+                        for(int y = 0; y < IMWD; y++){
+                            grid1.board[0][y] = grid4.board[16][y];
+                        }
+                        for(int y = 0; y < IMWD; y++){
+                            grid1.board[17][y] = grid2.board[1][y];
+                        }
+                        for(int y = 0; y < IMWD; y++){
+                            grid2.board[0][y] = grid1.board[16][y];
+                        }
+                        for(int y = 0; y < IMWD; y++){
+                            grid2.board[17][y] = grid3.board[1][y];
+                        }
+                        for(int y = 0; y < IMWD; y++){
+                            grid3.board[0][y] = grid2.board[16][y];
+                        }
+                        for(int y = 0; y < IMWD; y++){
+                            grid3.board[17][y] = grid4.board[1][y];
+                        }
+                        for(int y = 0; y < IMWD; y++){
+                            grid4.board[0][y] = grid3.board[16][y];
+                        }
+                        for(int y = 0; y < IMWD; y++){
+                            grid4.board[17][y] = grid1.board[1][y];
+                        }
                     }
 
                     tmr :> timeDiff;
@@ -273,6 +288,7 @@ void DataOutStream(chanend c_in){
 }
 
 // Initialise and  read orientation, send first tilt event to channel
+/*
 void orientation( client interface i2c_master_if i2c, chanend toDistributor) {
     i2c_regop_res_t result;
     char status_data = 0;
@@ -304,18 +320,19 @@ void orientation( client interface i2c_master_if i2c, chanend toDistributor) {
         }
     }
 }
+*/
 
 
 // Orchestrate concurrent system and start up all threads
 int main(void) {
 
-    i2c_master_if i2c[1];               //interface to orientation
+  //  i2c_master_if i2c[1];               //interface to orientation
 
     chan c_inIO, c_outIO, c_control, buttonsToDistributor, distributorToLEDs;    //extend your channel definitions here
 
     par {
-        on tile[0]: i2c_master(i2c, 1, p_scl, p_sda, 10);   //server thread providing orientation data
-        on tile[0]: orientation(i2c[0],c_control);        //client thread reading orientation data
+    //    on tile[0]: i2c_master(i2c, 1, p_scl, p_sda, 10);   //server thread providing orientation data
+    //    on tile[0]: orientation(i2c[0],c_control);        //client thread reading orientation data
         on tile[0]: DataInStream(c_inIO);          //thread to read in a PGM image
         on tile[0]: DataOutStream(c_outIO);       //thread to write out a PGM image
         on tile[0]: buttonListener(buttons, buttonsToDistributor);
