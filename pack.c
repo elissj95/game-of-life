@@ -130,37 +130,4 @@ int GridToNine(struct subGrid grid, int ypos, int xpos, int i, int isdead){
     return 0;
 }
 
-//Takes a grid and returns its evolved state
-struct subGrid worker(struct subGrid grid){
-    struct subGrid test;
-    test = grid;
-    //Create a new Grid to operate on
-    //Iterate through the Grid passed in
-    for(int y = 1; y<IMHT/4 ; y++){
-        for(int x = 0; x<IMWD/32 ; x++){
-            unsigned long val = grid.board[y][x];
-            //Iterate through each number
-            for(int i = 31; i>-1 ;i--){
-                unsigned long powerTwo = pow(2,i);
-                //Check for a 1
-                if((powerTwo & val) == powerTwo){
-                    //Alive (1)
-                    //Returns true or false to update the cell
-                    if(GridToNine(grid, y, x, i, 1) == 1){
-                        test.board[y][x] = test.board[y][x] - pow(2,i);
-                        // printf("ypos %d xpos %d i %d not alive\n", y, x, i);
-                    }
-                }
-                //Check for a 0
-                else if((powerTwo & ~val) == powerTwo){
-                    //Dead (0)
-                    //Returns true or false to update the cell
-                    if(GridToNine(grid, y, x, i, 0) == 1){
-                        test.board[y][x] = test.board[y][x] + pow(2,i);
-                    }
-                }
-            }
-        }
-    }
-    return test;
-}
+

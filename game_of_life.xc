@@ -5,11 +5,11 @@
 #include <stdio.h>
 #include <math.h>
 #include "pgmIO.h"
-//#include "i2c.h"
+#include "i2c.h"
 #include "pack.h"
 
-#define  IMHT 256                 //image height
-#define  IMWD 256                 //image width
+#define  IMHT 64                 //image height
+#define  IMWD 64                 //image width
 
 typedef unsigned char uchar;      //using uchar as shorthand
 
@@ -61,7 +61,7 @@ void DataInStream(chanend c_out) {
     int res;
     uchar line[ IMWD ];
     struct byteGrid grid;
-    char infname[] = "256x256.pgm";
+    char infname[] = "64x64.pgm";
 
     printf( "DataInStream: Start...\n" );
 
@@ -90,6 +90,41 @@ void DataInStream(chanend c_out) {
     return;
 }
 
+//Takes a grid and returns its evolved state
+struct subGrid worker(struct subGrid grid, chanend sendup, chanend senddown, chanend recieveabove, chanend recievebelow){
+    struct subGrid test;
+    test = grid;
+    //Create a new Grid to operate on
+    //Iterate through the Grid passed in
+    for(int y = 1; y<(IMHT/4)+1 ; y++){
+        for(int x = 0; x<IMWD/32 ; x++){
+            unsigned long val = grid.board[y][x];
+            //Iterate through each number
+            for(int i = 31; i>-1 ;i--){
+                unsigned long powerTwo = pow(2,i);
+                //Check for a 1
+                if((powerTwo & val) == powerTwo){
+                    //Alive (1)
+                    //Returns true or false to update the cell
+                    if(GridToNine(grid, y, x, i, 1) == 1){
+                        test.board[y][x] = test.board[y][x] - pow(2,i);
+                        // printf("ypos %d xpos %d i %d not alive\n", y, x, i);
+                    }
+                }
+                //Check for a 0
+                else if((powerTwo & ~val) == powerTwo){
+                    //Dead (0)
+                    //Returns true or false to update the cell
+                    if(GridToNine(grid, y, x, i, 0) == 1){
+                        test.board[y][x] = test.board[y][x] + pow(2,i);
+                    }
+                }
+            }
+        }
+    }
+    return test;
+}
+
 // Distributes work to worker threads
 void distributor(chanend c_in, chanend c_out, chanend fromAcc, chanend fromButtons, chanend toLEDs){
 
@@ -98,8 +133,8 @@ void distributor(chanend c_in, chanend c_out, chanend fromAcc, chanend fromButto
     int buttonInput;
     int stopEvolving = 0;
     int rounds = 0;
-    float time;
-    float timeDiff;
+    uint64_t time;
+    uint64_t timeDiff;
 
     //Initialise subgrids
     struct subGrid grid1;
@@ -123,7 +158,7 @@ void distributor(chanend c_in, chanend c_out, chanend fromAcc, chanend fromButto
     //Take current time and compare to time at beginning, print difference
     tmr :> timeDiff;
     time = (timeDiff - time) / 100000000;
-    printf("Processing the image took %f seconds.\n", time);
+    printf("Processing the image took %u seconds.\n", time);
 
     toLEDs <: 0;
 
@@ -132,29 +167,37 @@ void distributor(chanend c_in, chanend c_out, chanend fromAcc, chanend fromButto
     grid3 = divideGrid(grid, 3);
     grid4 = divideGrid(grid, 4);
 
+    chan onedown, oneup, twodown, twoup, threedown, threeup, fourdown, fourup;
+
     //Serve button input
     while (!stopEvolving) {
         select {
             case fromButtons :> buttonInput: //expect values 13 and 14
                 //Run another round
                 if(buttonInput == 14) {
-
                     toLEDs <: 5;
                     tmr :> time;
                     //Evolve grid
                     //grid = worker(grid);
+                    for(int x = 0;x<100;x++){
 
+                        printf("Processing round %d\n", x);
                     par{
-                        grid1 = worker(grid1);
-                        grid2 = worker(grid2);
-                        grid3 = worker(grid3);
-                        grid4 = worker(grid4);
+                        grid1 = worker(grid1, onedown, oneup, fourdown, twoup);
+                        grid2 = worker(grid2, twodown, twoup, onedown, threeup);
+                        grid3 = worker(grid3, threedown, threeup, twodown, fourup);
+                        grid4 = worker(grid4, fourdown, fourup, threedown, oneup);
                     }
-
+                        grid = undivideGrid(grid1, grid2, grid3, grid4);
+                        grid1 = divideGrid(grid, 1);
+                        grid2 = divideGrid(grid, 2);
+                        grid3 = divideGrid(grid, 3);
+                        grid4 = divideGrid(grid, 4);
+                    }
 
                     tmr :> timeDiff;
                     time = (timeDiff - time) / 100000000;
-                    printf("Processing that round took %f seconds.\n", time);
+                    printf("Processing that ten rounds took %u seconds.\n", time);
                     toLEDs <: 1;
                     rounds++;
                     printf( "One processing round completed...\n" );
@@ -230,7 +273,7 @@ void DataOutStream(chanend c_in){
 }
 
 // Initialise and  read orientation, send first tilt event to channel
-/*void orientation( client interface i2c_master_if i2c, chanend toDistributor) {
+void orientation( client interface i2c_master_if i2c, chanend toDistributor) {
     i2c_regop_res_t result;
     char status_data = 0;
     int tilted = 0;
@@ -260,25 +303,25 @@ void DataOutStream(chanend c_in){
             }
         }
     }
-}*/
+}
 
 
 // Orchestrate concurrent system and start up all threads
 int main(void) {
 
-    //i2c_master_if i2c[1];               //interface to orientation
+    i2c_master_if i2c[1];               //interface to orientation
 
     chan c_inIO, c_outIO, c_control, buttonsToDistributor, distributorToLEDs;    //extend your channel definitions here
 
     par {
-        //  i2c_master(i2c, 1, p_scl, p_sda, 10);   //server thread providing orientation data
-        //  orientation(i2c[0],c_control);        //client thread reading orientation data
-        on tile[1]: DataInStream(c_inIO);          //thread to read in a PGM image
-        on tile[1]: DataOutStream(c_outIO);       //thread to write out a PGM image
-        on tile[1]: distributor(c_inIO, c_outIO, c_control, buttonsToDistributor, distributorToLEDs);//thread to coordinate work on image
-
+        on tile[0]: i2c_master(i2c, 1, p_scl, p_sda, 10);   //server thread providing orientation data
+        on tile[0]: orientation(i2c[0],c_control);        //client thread reading orientation data
+        on tile[0]: DataInStream(c_inIO);          //thread to read in a PGM image
+        on tile[0]: DataOutStream(c_outIO);       //thread to write out a PGM image
         on tile[0]: buttonListener(buttons, buttonsToDistributor);
         on tile[0]: showLEDs(leds, distributorToLEDs);
+        on tile[1]: distributor(c_inIO, c_outIO, c_control, buttonsToDistributor, distributorToLEDs);//thread to coordinate work on image
+
     }
     return 0;
 }
