@@ -89,6 +89,17 @@ void DataInStream(chanend c_out) {
     return;
 }
 
+uchar leftEdgeCounter(uchar top, uchar middle, uchar bottom){
+    uchar returnval = top%2 + middle%2 + bottom%2;
+    return returnval;
+}
+
+uchar rightEdgeCounter(uchar top, uchar middle, uchar bottom){
+    uchar returnval = (top >> 7)%2 + (middle >> 7)%2 + (bottom >> 7)%2;
+    return returnval;
+}
+
+
 //Takes a grid and returns its evolved state
 struct subGrid worker(struct subGrid grid){
     struct subGrid test;
@@ -97,28 +108,13 @@ struct subGrid worker(struct subGrid grid){
     //Iterate through the Grid passed in
     for(int y = 1; y<(IMHT/4)+1 ; y++){
         for(int x = 0; x<IMWD/8 ; x++){
-            uchar val = grid.board[y][x];
-            //Iterate through each number
-            for(int i = 7; i>-1 ;i--){
-                uchar powerTwo = pow(2,i);
-                //Check for a 1
-                if((powerTwo & val) == powerTwo){
-                    //Alive (1)
-                    //Returns true or false to update the cell
-                    if(GridToNine(grid, y, x, i, 1) == 1){
-                        test.board[y][x] = test.board[y][x] - pow(2,i);
-                        // printf("ypos %d xpos %d i %d not alive\n", y, x, i);
-                    }
-                }
-                //Check for a 0
-                else if((powerTwo & ~val) == powerTwo){
-                    //Dead (0)
-                    //Returns true or false to update the cell
-                    if(GridToNine(grid, y, x, i, 0) == 1){
-                        test.board[y][x] = test.board[y][x] + pow(2,i);
-                    }
-                }
-            }
+
+            uchar top = grid.board[(y-1)][x];
+            uchar middle = grid.board[y][x];
+            uchar below = grid.board[y+1][x];
+            uchar leftEdge = leftEdgeCounter(grid.board[y-1][((x-1)+8)%8], grid.board[y][((x-1)+8)%8], grid.board[y+1][((x-1)+8)%8]);
+            uchar rightEdge = rightEdgeCounter(grid.board[y-1][(x+1)%8], grid.board[y][(x+1)%8], grid.board[y+1][(x+1)%8]);
+            test.board[y][x] = GridToNine(top, middle, below, leftEdge, rightEdge);
         }
     }
     return test;

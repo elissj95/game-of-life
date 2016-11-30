@@ -65,68 +65,17 @@ struct byteGrid addlinetogrid(struct byteGrid grid, unsigned char line[], int li
 }
 
 //Takes a pixel and determines how many of its surrounding pixels are alive
-int GridToNine(struct subGrid grid, int ypos, int xpos, int i, int isdead){
-    //Take 3 numbers, start from above and continuing to below
-    uchar threerow[3];
+uchar GridToNine(uchar above, uchar middle, uchar below, uchar edgeleft, uchar edgeright){
     uchar test = pow(2, 7);
     int counter = 0;
     int val = 0;
-    //Overall counter for number of 1's
-    //Initialise the top row, middle row and bottom row
-    for(int y = ypos-1;y<ypos+2;y++){
-        threerow[val] = grid.board[(y+IMHT)%IMHT][xpos];
-        //Check the MSB for a 0 or a 1
-        val++;
+
+    for(int i = 7;x=0;x--){
+
+
     }
 
-    if(i==7){
-        for(int y = ypos-1; y<ypos+2 ; y++){
-            if((grid.board[(y+IMHT)%IMHT][(xpos+1)%(IMWD/8)] & 1) == 1){
-                counter++;
-            }
-        }
-        for(int x = 0 ; x<3 ; x++){
-            for(int t = i-1;t<i+1;t++){
-                uchar testval = pow(2, t);
-                if(((threerow[x] & testval) == testval) && !((x==1) && (t==i))){
-                    counter++;
-                }
-            }
-        }
-    }
-    if(i==0){
-        for(int y = ypos-1; y<ypos+2 ; y++){
-            if((grid.board[(y+IMHT)%IMHT][(xpos+1)%(IMWD/8)] & test) == test){
-                counter++;
-            }
-        }
-        for(int x = 0 ; x<3 ; x++){
-            for(int t = i+1;t>i-1;t--){
-                uchar testval = pow(2, t);
-                if(((threerow[x] & testval) == testval) && !((x==1) && (t==i))){
-                    counter++;
-                }
-            }
-        }
-    }
-    //Check the middle of the number for 1's
-    else if((i!=0) && (i!=7)){
-        for(int x = 0 ; x<3 ; x++){
-            for(int t = i-1;t<i+2;t++){
-                uchar testval = pow(2, t);
-                if(((threerow[x] & testval) == testval) && !((x==1) && (t==i))){
-                    counter++;
-                }
-            }
-        }
-    }
-    //Alive counter
-    if((isdead == 1) && ((counter == 0) || (counter > 3))){
-        return 1;
-    }
-    if((isdead == 0) && (counter == 3)){
-        return 1;
-    }
+
     return 0;
 }
 
