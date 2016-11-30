@@ -46,7 +46,7 @@ return grid;
 }
 
 // Takes in the Grid, line and linenum and encodes that line of the Grid to be the binary line given in.
-struct byteGrid addlinetogrid(struct byteGrid grid, unsigned char line[], int lineNum){
+struct subGrid addlinetogrid(struct subGrid grid, unsigned char line[], int lineNum){
     int counter = 0;
 
     for(int i = 0; i<IMWD/8; i++) { //zero line before writing to it

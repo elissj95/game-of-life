@@ -57,8 +57,16 @@ void buttonListener(in port b, chanend toDistributor) {
 // Read Image from PGM file from path infname[] to channel c_out
 void DataInStream(chanend c_out) {
     int res;
+    int counter = 0;
     uchar line[ IMWD ];
-    struct byteGrid grid;
+    struct subGrid grid1;
+    struct subGrid grid2;
+    struct subGrid grid3;
+    struct subGrid grid4;
+    struct subGrid grid5;
+    struct subGrid grid6;
+    struct subGrid grid7;
+    struct subGrid grid8;
     char infname[] = "test.pgm";
 
     printf( "DataInStream: Start...\n" );
@@ -73,16 +81,56 @@ void DataInStream(chanend c_out) {
     //Read image line-by-line and send byte by byte to channel c_out
     for( int y = 0; y < IMHT; y++ ) {
         _readinline( line, IMWD );
-
-        grid = addlinetogrid(grid, line, y);
+        if(counter == 0) {
+            grid8 = addlinetogrid(grid8, line, (IMHT/8)+1);
+        }
+        if(counter <= IMHT/8){
+            grid1 = addlinetogrid(grid1, line, counter);
+        }
+        if(((IMHT/8)-1)<= counter <= (2(IMHT/8))){
+            grid2 = addlinetogrid(grid2, line, counter-((IMHT/8)-1));
+        }
+        if(2(IMHT/8)-1<= counter <= 3(IMHT/8)){
+            grid3 = addlinetogrid(grid3, line, counter-(2(IMHT/8)-1));
+        }
+        if(3(IMHT/8)-1<= counter <= 4(IMHT/8)){
+            grid4 = addlinetogrid(grid4, line, counter-(3(IMHT/8)-1));
+        }
+        if(4(IMHT/8)-1<= counter <= 5(IMHT/8)){
+            grid5 = addlinetogrid(grid5, line, counter-(4(IMHT/8)-1));
+        }
+        if(5(IMHT/8)-1<= counter <= 6(IMHT/8)){
+            grid6 = addlinetogrid(grid6, line, counter-(5(IMHT/8)-1));
+        }
+        if(6(IMHT/8)-1<= counter <= 7(IMHT/8)){
+            grid7 = addlinetogrid(grid7, line, counter-(6(IMHT/8)-1));
+        }
+        if(7(IMHT/8)<= counter <= IMHT){
+            grid8 = addlinetogrid(grid8, line, counter-(7(IMHT/8)));
+        }
+        if(counter == IMHT){
+            grid1 = addlinetogrid(grid1, line, 0);
+        }
+    }
+    for(int y = 0; y < IMHT; y++){
+        for(int x = 0; x < IMWD/8; x++) {
+            printf("%d", grid1.board[y][x]);
+        }
     }
 
     //Send each element of grid to distributor
-    for( int y = 0; y< IMHT;y++){
+    /*for( int y = 0; y< IMHT;y++){
         for(int x = 0; x<(IMWD/8) ;x++){
             c_out <: grid.board[y][x];
         }
-    }
+    }*/
+
+
+
+
+
+
+
     //Close PGM image file
     _closeinpgm();
     printf( "DataInStream: Done...\n" );
