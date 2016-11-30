@@ -65,18 +65,73 @@ struct byteGrid addlinetogrid(struct byteGrid grid, unsigned char line[], int li
 }
 
 //Takes a pixel and determines how many of its surrounding pixels are alive
-uchar GridToNine(uchar above, uchar middle, uchar below, uchar edgeleft, uchar edgeright){
-    uchar test = pow(2, 7);
-    int counter = 0;
-    int val = 0;
+uchar GridToNine(uchar above, uchar middle, uchar below, uchar edgeLeft, uchar edgeRight){
+    uchar top[2], mid[3], bot[2]; top[0] = 0; top[1] = 0;
+    uchar ntop, nbot;
+    uchar counter = 0;
+    uchar state = 0;
+    for(int i = 7;i==0;i--){
+        counter = 0;
+        if(i==7){
+           if((above>>6)%2){
+               top[1] = 1;
+           }
+           if((above>>7)%2){
+               top[0] = 1;
+           }
+           if((below>>6)%2){
+               bot[1] = 1;
+           }
+           if((below>>7)%2){
+               bot[0] = 1;
+           }
+           if((middle>>7)%2){
+               state = 1;
+               mid[1] = 1;
+           }
+           if((middle>>6)%2){
+               mid[2] = 1;
+           }
 
-    for(int i = 7;x=0;x--){
-
-
+           counter = counter + edgeLeft + top[0] + top[1] + bot[0] + bot[1] + mid[2];
+        }
+        if(i!=7 && i!=0){
+            if((above>>(i-1))%2){
+                ntop = 1;
+                counter++;
+            }
+            if((below>>(i-1))%2){
+                nbot = 1;
+                counter++;
+            }
+            mid[0] = mid[1];
+            mid[1] = mid[2];
+            if((middle>>(i-1))%2){
+                mid[2] = 1;
+            }
+            counter = counter + top[0] + top[1] + bot[0] + bot[1] + mid[0] + mid[2];
+            top[0] = top[1];
+            top[1] = ntop;
+            bot[0] = bot[1];
+            bot[1] = nbot;
+            if(mid[1] == 1){
+                state = 1;
+            }
+        }
+        if(i==0){
+           counter = counter + edgeRight + top[0] + top[1] + bot[0] + bot[1] + mid[0];
+           if(mid[1] == 1){
+               state = 1;
+           }
+        }
+        if(state && (counter == 1) && (counter > 3)){
+            middle = middle - pow(2, i);
+        }
+        if((state == 0) && counter == 3){
+            middle = middle + pow(2, i);
+        }
     }
-
-
-    return 0;
+    return middle;
 }
 
 
