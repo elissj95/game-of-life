@@ -7,8 +7,8 @@
 #include <stdio.h>
 #include <string.h>
 
-#define IMWD 64
-#define IMHT 64
+#define IMWD 16
+#define IMHT 16
 
 typedef unsigned char uchar;
 
