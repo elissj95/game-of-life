@@ -8,8 +8,8 @@
 #include "i2c.h"
 #include "pack.h"
 
-#define  IMHT 64                 //image height
-#define  IMWD 64                 //image width
+#define  IMHT 16                 //image height
+#define  IMWD 16                 //image width
 
 on tile[0]: port p_scl = XS1_PORT_1E;         //interface ports to orientation
 on tile[0]: port p_sda = XS1_PORT_1F;
@@ -59,7 +59,7 @@ void DataInStream(chanend c_out) {
     int res;
     uchar line[ IMWD ];
     struct byteGrid grid;
-    char infname[] = "64x64.pgm";
+    char infname[] = "test.pgm";
 
     printf( "DataInStream: Start...\n" );
 
@@ -102,22 +102,18 @@ uchar rightEdgeCounter(uchar top, uchar middle, uchar bottom){
 
 //Takes a grid and returns its evolved state
 struct subGrid worker(struct subGrid grid){
-    struct subGrid test;
-    test = grid;
-    //Create a new Grid to operate on
     //Iterate through the Grid passed in
     for(int y = 1; y<(IMHT/4)+1 ; y++){
         for(int x = 0; x<IMWD/8 ; x++){
-
             uchar top = grid.board[(y-1)][x];
             uchar middle = grid.board[y][x];
             uchar below = grid.board[y+1][x];
             uchar leftEdge = leftEdgeCounter(grid.board[y-1][((x-1)+8)%8], grid.board[y][((x-1)+8)%8], grid.board[y+1][((x-1)+8)%8]);
             uchar rightEdge = rightEdgeCounter(grid.board[y-1][(x+1)%8], grid.board[y][(x+1)%8], grid.board[y+1][(x+1)%8]);
-            test.board[y][x] = GridToNine(top, middle, below, leftEdge, rightEdge);
+            grid.board[y][x] = GridToNine(top, middle, below, leftEdge, rightEdge);
         }
     }
-    return test;
+    return grid;
 }
 
 // Distributes work to worker threads
@@ -157,12 +153,22 @@ void distributor(chanend c_in, chanend c_out, chanend fromAcc, chanend fromButto
 
     toLEDs <: 0;
 
-    grid1 = divideGrid(grid, 1);
-    grid2 = divideGrid(grid, 2);
-    grid3 = divideGrid(grid, 3);
-    grid4 = divideGrid(grid, 4);
+    par {
+        grid1 = divideGrid(grid, 1);
+        grid2 = divideGrid(grid, 2);
+        grid3 = divideGrid(grid, 3);
+        grid4 = divideGrid(grid, 4);
+    }
 
+    uchar test1 = 68;
+    uchar test2 = 170;
+    uchar test3 = 0;
+    uchar test4 = 0;
+    uchar test5 = 0;
 
+    uchar test = GridToNine(test1,test2,test3,test4,test5);
+    printf("%d", test);
+/*
     //Serve button input
     while (!stopEvolving) {
         select {
@@ -225,7 +231,7 @@ void distributor(chanend c_in, chanend c_out, chanend fromAcc, chanend fromButto
                 }
                 break;
         }
-    }
+    }*/
 }
 
 // Write pixel stream from channel c_in to PGM image file
