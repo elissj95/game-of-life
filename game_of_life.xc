@@ -11,8 +11,6 @@
 #define  IMHT 64                 //image height
 #define  IMWD 64                 //image width
 
-typedef unsigned char uchar;      //using uchar as shorthand
-
 on tile[0]: port p_scl = XS1_PORT_1E;         //interface ports to orientation
 on tile[0]: port p_sda = XS1_PORT_1F;
 on tile[0]: in port buttons = XS1_PORT_4E; //port to access buttons
@@ -75,12 +73,13 @@ void DataInStream(chanend c_out) {
     //Read image line-by-line and send byte by byte to channel c_out
     for( int y = 0; y < IMHT; y++ ) {
         _readinline( line, IMWD );
+
         grid = addlinetogrid(grid, line, y);
     }
 
     //Send each element of grid to distributor
     for( int y = 0; y< IMHT;y++){
-        for(int x = 0; x<(IMWD/32) ;x++){
+        for(int x = 0; x<(IMWD/8) ;x++){
             c_out <: grid.board[y][x];
         }
     }
@@ -91,17 +90,17 @@ void DataInStream(chanend c_out) {
 }
 
 //Takes a grid and returns its evolved state
-struct subGrid worker(struct subGrid grid, chanend sendup, chanend senddown, chanend recieveabove, chanend recievebelow){
+struct subGrid worker(struct subGrid grid){
     struct subGrid test;
     test = grid;
     //Create a new Grid to operate on
     //Iterate through the Grid passed in
     for(int y = 1; y<(IMHT/4)+1 ; y++){
-        for(int x = 0; x<IMWD/32 ; x++){
-            unsigned long val = grid.board[y][x];
+        for(int x = 0; x<IMWD/8 ; x++){
+            uchar val = grid.board[y][x];
             //Iterate through each number
-            for(int i = 31; i>-1 ;i--){
-                unsigned long powerTwo = pow(2,i);
+            for(int i = 7; i>-1 ;i--){
+                uchar powerTwo = pow(2,i);
                 //Check for a 1
                 if((powerTwo & val) == powerTwo){
                     //Alive (1)
@@ -133,8 +132,9 @@ void distributor(chanend c_in, chanend c_out, chanend fromAcc, chanend fromButto
     int buttonInput;
     int stopEvolving = 0;
     int rounds = 0;
-    uint64_t time;
-    uint64_t timeDiff;
+    int orientationInput;
+    unsigned time;
+    unsigned timeDiff;
 
     //Initialise subgrids
     struct subGrid grid1;
@@ -150,15 +150,14 @@ void distributor(chanend c_in, chanend c_out, chanend fromAcc, chanend fromButto
 
     //Populate grid with values from DataIn
     for( int y = 0; y < IMHT; y++ ) {   //go through all lines
-        for( int x = 0; x < (IMWD/32); x++ ) { //go through each pixel per line
+        for( int x = 0; x < (IMWD/8); x++ ) { //go through each pixel per line
             c_in :> grid.board[y][x];   //read the pixel value
         }
     }
 
     //Take current time and compare to time at beginning, print difference
     tmr :> timeDiff;
-    time = (timeDiff - time) / 100000000;
-    printf("Processing the image took %u seconds.\n", time);
+    printf("Processing the image took %u seconds.\n", time - timeDiff);
 
     toLEDs <: 0;
 
@@ -167,7 +166,6 @@ void distributor(chanend c_in, chanend c_out, chanend fromAcc, chanend fromButto
     grid3 = divideGrid(grid, 3);
     grid4 = divideGrid(grid, 4);
 
-    chan onedown, oneup, twodown, twoup, threedown, threeup, fourdown, fourup;
 
     //Serve button input
     while (!stopEvolving) {
@@ -178,26 +176,30 @@ void distributor(chanend c_in, chanend c_out, chanend fromAcc, chanend fromButto
                     toLEDs <: 5;
                     tmr :> time;
                     //Evolve grid
-                    //grid = worker(grid);
-                    for(int x = 0;x<100;x++){
 
-                        printf("Processing round %d\n", x);
-                    par{
-                        grid1 = worker(grid1, onedown, oneup, fourdown, twoup);
-                        grid2 = worker(grid2, twodown, twoup, onedown, threeup);
-                        grid3 = worker(grid3, threedown, threeup, twodown, fourup);
-                        grid4 = worker(grid4, fourdown, fourup, threedown, oneup);
-                    }
+                    //grid = worker(grid);
+                   // for(int x = 0;x < 10; x++){
+                        printf("Processing round %d\n", rounds+1);
+
+                        par{
+                            grid1 = worker(grid1);
+                            grid2 = worker(grid2);
+                            grid3 = worker(grid3);
+                            grid4 = worker(grid4);
+                        }
+
                         grid = undivideGrid(grid1, grid2, grid3, grid4);
-                        grid1 = divideGrid(grid, 1);
-                        grid2 = divideGrid(grid, 2);
-                        grid3 = divideGrid(grid, 3);
-                        grid4 = divideGrid(grid, 4);
-                    }
+
+                        par {
+                            grid1 = divideGrid(grid, 1);
+                            grid2 = divideGrid(grid, 2);
+                            grid3 = divideGrid(grid, 3);
+                            grid4 = divideGrid(grid, 4);
+                        }
+               //     }
 
                     tmr :> timeDiff;
-                    time = (timeDiff - time) / 100000000;
-                    printf("Processing that ten rounds took %u seconds.\n", time);
+                    printf("Processing that that round took %u seconds.\n", time - timeDiff);
                     toLEDs <: 1;
                     rounds++;
                     printf( "One processing round completed...\n" );
@@ -209,22 +211,23 @@ void distributor(chanend c_in, chanend c_out, chanend fromAcc, chanend fromButto
                     printf("Outputting...\n");
                     grid = undivideGrid(grid1, grid2, grid3, grid4);
                     for(int x = 0; x < IMHT; x++) {
-                        for(int y = 0; y < IMWD/32; y++) {
+                        for(int y = 0; y < IMWD/8; y++) {
                             c_out <: grid.board[x][y];
                         }
                     }
                     tmr :> timeDiff;
-                    time = (timeDiff - time) / 100000000;
-                    printf("Outputting to pgm took %f seconds.\n", time);
+                    printf("Outputting to pgm took %u seconds.\n", time - timeDiff);
                     toLEDs <: 0;
                     stopEvolving = 1;
                 }
                 break;
-                /*
-            case fromAcc :> 1:
-                printf("Board tilted, processing paused...");
-                printf("%d round completed so far", rounds);
-                */
+            case fromAcc :> orientationInput:
+                printf("Board tilted, processing paused...\n");
+                printf("%d round completed so far\n", rounds);
+                while(orientationInput!=1){
+                    fromAcc :> orientationInput;
+                }
+                break;
         }
     }
 }
@@ -235,7 +238,7 @@ void DataOutStream(chanend c_in){
     int offset;
     int res;
     uchar line[ IMWD ];
-    unsigned long intLine[IMWD/32];
+    uchar intLine[IMWD/8];
     char outfname[] = "testout.pgm";
 
     //Open PGM file
@@ -248,20 +251,20 @@ void DataOutStream(chanend c_in){
 
     //Compile each line of the image and covert the image back to uchars line-by-line
     for( int y = 0; y < IMHT; y++ ) {
-        for( int x = 0; x < IMWD/32; x++ ) {
+        for( int x = 0; x < IMWD/8; x++ ) {
             c_in :> intLine[x];
         }
         offset = 0;
-        for(int a = 0; a < IMWD/32; a++) {
-            int p = 32-1;
-            for(int z = offset; z < 32+offset; z++){
+        for(int a = 0; a < IMWD/8; a++) {
+            int p = 8-1;
+            for(int z = offset; z < 8+offset; z++){
                 //Compare bytes 1 at a time and change back to uchars
-                unsigned long powerTwo = pow(2,p);
+                uchar powerTwo = pow(2,p);
                 if((powerTwo & intLine[a]) == powerTwo) { line[z] = 0;}
                 else { line[z] = 255;}
                 p--;
             }
-            offset+=32;
+            offset+=8;
         }
         _writeoutline( line, IMWD );
         //printf( "DataOutStream: Line written...\n" );

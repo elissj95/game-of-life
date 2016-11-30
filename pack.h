@@ -10,12 +10,14 @@
 #define IMWD 64
 #define IMHT 64
 
+typedef unsigned char uchar;
+
 struct subGrid {
-    unsigned long board[(IMHT/4)+2][IMWD/32];
+    uchar board[(IMHT/4)+2][IMWD/8];
 };
 
 struct byteGrid {
-    unsigned long board[IMHT][IMWD/32];
+    uchar board[IMHT][IMWD/8];
 };
 
 struct subGrid divideGrid(struct byteGrid grid, int section);

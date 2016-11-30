@@ -9,7 +9,7 @@ struct subGrid divideGrid(struct byteGrid grid, int section) {
     int base =  (((section - 1)*(IMHT/4))-1)%IMHT;
 
     for(int x = 0; x < (IMHT/4)+2; x++){
-        for(int y = 0; y < IMWD/32; y++) {
+        for(int y = 0; y < IMWD/8; y++) {
             subgrid.board[x][y] = grid.board[(x+base)%IMHT][y];
         }
     }
@@ -22,23 +22,23 @@ struct byteGrid undivideGrid(struct subGrid grid1, struct subGrid grid2, struct 
 
     //Add top subgrid to grid
     for(int x = 0; x < IMHT/4; x++) {
-        for(int y = 0; y < IMWD/32; y++) {
+        for(int y = 0; y < IMWD/8; y++) {
             grid.board[x][y] = grid1.board[x+1][y];
         }
     }
     //Add second subgrid to grid etc.
     for(int x = IMHT/4; x < IMHT/2; x++) {
-        for(int y = 0; y < IMWD/32; y++) {
+        for(int y = 0; y < IMWD/8; y++) {
             grid.board[x][y] = grid2.board[x-IMHT/4+1][y];
         }
     }
     for(int x = IMHT/2; x < 3*IMHT/4; x++) {
-        for(int y = 0; y < IMWD/32; y++) {
+        for(int y = 0; y < IMWD/8; y++) {
             grid.board[x][y] = grid3.board[x-IMHT/2+1][y];
         }
     }
     for(int x = 3*IMHT/4; x < IMHT; x++) {
-        for(int y = 0; y < IMWD/32; y++) {
+        for(int y = 0; y < IMWD/8; y++) {
             grid.board[x][y] = grid4.board[x-(3*IMHT/4)+1][y];
         }
     }
@@ -49,16 +49,16 @@ return grid;
 struct byteGrid addlinetogrid(struct byteGrid grid, unsigned char line[], int lineNum){
     int counter = 0;
 
-    for(int i = 0; i<IMWD/32; i++) { //zero line before writing to it
+    for(int i = 0; i<IMWD/8; i++) { //zero line before writing to it
         grid.board[lineNum][i] = 0;
     }
 
     for (int j = 0; j<IMWD ; j++){
-        if(j%32 == 0 && j!=0){
+        if(j%8 == 0 && j!=0){
             counter++;
         }
         if(line[j] == 0){
-            grid.board[lineNum][counter] = grid.board[lineNum][counter] + pow(2,((31)-j%32));
+            grid.board[lineNum][counter] = grid.board[lineNum][counter] + pow(2,((7)-j%8));
         }
     }
     return grid;
@@ -67,8 +67,8 @@ struct byteGrid addlinetogrid(struct byteGrid grid, unsigned char line[], int li
 //Takes a pixel and determines how many of its surrounding pixels are alive
 int GridToNine(struct subGrid grid, int ypos, int xpos, int i, int isdead){
     //Take 3 numbers, start from above and continuing to below
-    unsigned long threerow[3];
-    unsigned long test = 2147483648;
+    uchar threerow[3];
+    uchar test = pow(2, 7);
     int counter = 0;
     int val = 0;
     //Overall counter for number of 1's
@@ -79,15 +79,15 @@ int GridToNine(struct subGrid grid, int ypos, int xpos, int i, int isdead){
         val++;
     }
 
-    if(i==31){
+    if(i==7){
         for(int y = ypos-1; y<ypos+2 ; y++){
-            if((grid.board[(y+IMHT)%IMHT][(xpos+1)%(IMWD/32)] & 1) == 1){
+            if((grid.board[(y+IMHT)%IMHT][(xpos+1)%(IMWD/8)] & 1) == 1){
                 counter++;
             }
         }
         for(int x = 0 ; x<3 ; x++){
             for(int t = i-1;t<i+1;t++){
-                unsigned long testval = pow(2, t);
+                uchar testval = pow(2, t);
                 if(((threerow[x] & testval) == testval) && !((x==1) && (t==i))){
                     counter++;
                 }
@@ -96,13 +96,13 @@ int GridToNine(struct subGrid grid, int ypos, int xpos, int i, int isdead){
     }
     if(i==0){
         for(int y = ypos-1; y<ypos+2 ; y++){
-            if((grid.board[(y+IMHT)%IMHT][(xpos+1)%(IMWD/32)] & test) == test){
+            if((grid.board[(y+IMHT)%IMHT][(xpos+1)%(IMWD/8)] & test) == test){
                 counter++;
             }
         }
         for(int x = 0 ; x<3 ; x++){
             for(int t = i+1;t>i-1;t--){
-                unsigned long testval = pow(2, t);
+                uchar testval = pow(2, t);
                 if(((threerow[x] & testval) == testval) && !((x==1) && (t==i))){
                     counter++;
                 }
@@ -110,10 +110,10 @@ int GridToNine(struct subGrid grid, int ypos, int xpos, int i, int isdead){
         }
     }
     //Check the middle of the number for 1's
-    else if((i!=0) && (i!=31)){
+    else if((i!=0) && (i!=7)){
         for(int x = 0 ; x<3 ; x++){
             for(int t = i-1;t<i+2;t++){
-                unsigned long testval = pow(2, t);
+                uchar testval = pow(2, t);
                 if(((threerow[x] & testval) == testval) && !((x==1) && (t==i))){
                     counter++;
                 }
