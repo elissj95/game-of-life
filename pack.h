@@ -7,13 +7,13 @@
 #include <stdio.h>
 #include <string.h>
 
-#define IMWD 16
-#define IMHT 16
+#define IMWD 256
+#define IMHT 256
 
 typedef unsigned char uchar;
 
 struct subGrid {
-    uchar board[(IMHT/4)+2][IMWD/8];
+    uchar board[(IMHT/8)+2][IMWD/8];
 };
 
 uchar leftEdgeCounter(uchar top, uchar middle, uchar bottom);

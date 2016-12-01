@@ -8,8 +8,8 @@
 #include "i2c.h"
 #include "pack.h"
 
-#define  IMHT 16                 //image height
-#define  IMWD 16                //image width
+#define  IMHT 256                 //image height
+#define  IMWD 256                //image width
 
 on tile[0]: port p_scl = XS1_PORT_1E;         //interface ports to orientation
 on tile[0]: port p_sda = XS1_PORT_1F;
@@ -58,7 +58,7 @@ void DataInStream(chanend c_out) {
     int res;
     uchar line[ IMWD ];
     uchar row[ IMWD/8 ];
-    char infname[] = "test.pgm";
+    char infname[] = "256x256.pgm";
     printf( "DataInStream: Start...\n" );
 
     //Open PGM file
@@ -88,7 +88,7 @@ void DataInStream(chanend c_out) {
 struct subGrid worker(struct subGrid grid){
     struct subGrid test = grid;
     //Iterate through the Grid passed in
-    for(int y = 1; y<(IMHT/4)+1 ; y++){
+    for(int y = 1; y<(IMHT/8)+1 ; y++){
         for(int x = 0; x<IMWD/8 ; x++){
             uchar top = grid.board[(y-1)][x];
             uchar middle = grid.board[y][x];
@@ -117,6 +117,10 @@ void distributor(chanend c_in, chanend c_out, chanend fromAcc, chanend fromButto
     struct subGrid grid2;
     struct subGrid grid3;
     struct subGrid grid4;
+    struct subGrid grid5;
+    struct subGrid grid6;
+    struct subGrid grid7;
+    struct subGrid grid8;
 
     //Starting up and wait for tilting of the xCore-200 Explorer
     tmr :> time;
@@ -125,36 +129,64 @@ void distributor(chanend c_in, chanend c_out, chanend fromAcc, chanend fromButto
     printf( "Processing...\n" );
 
     //Populate grid with values from DataIn
-    for( int y = 1; y < IMHT/4+1; y++ ) {
+    for( int y = 1; y < (IMHT/8)+1; y++ ) {
         for( int x = 0; x < (IMWD/8); x++ ) {
             c_in :> grid1.board[y][x];
         }
     }
-    for( int y = 1; y < IMHT/4+1; y++ ) {
+    for( int y = 1; y < (IMHT/8)+1; y++ ) {
         for( int x = 0; x < (IMWD/8); x++ ) {
             c_in :> grid2.board[y][x];
         }
     }
-    for( int y = 1; y < IMHT/4+1; y++ ) {
+    for( int y = 1; y < (IMHT/8)+1; y++ ) {
         for( int x = 0; x < (IMWD/8); x++ ) {
             c_in :> grid3.board[y][x];
         }
     }
-    for( int y = 1; y < IMHT/4+1; y++ ) {
+    for( int y = 1; y < (IMHT/8)+1; y++ ) {
         for( int x = 0; x < (IMWD/8); x++ ) {
             c_in :> grid4.board[y][x];
         }
     }
+    for( int y = 1; y < (IMHT/8)+1; y++ ) {
+        for( int x = 0; x < (IMWD/8); x++ ) {
+            c_in :> grid5.board[y][x];
+        }
+    }
+    for( int y = 1; y < (IMHT/8)+1; y++ ) {
+        for( int x = 0; x < (IMWD/8); x++ ) {
+            c_in :> grid6.board[y][x];
+        }
+    }
+    for( int y = 1; y < (IMHT/8)+1; y++ ) {
+        for( int x = 0; x < (IMWD/8); x++ ) {
+            c_in :> grid7.board[y][x];
+        }
+    }
+    for( int y = 1; y < (IMHT/8)+1; y++ ) {
+        for( int x = 0; x < (IMWD/8); x++ ) {
+            c_in :> grid8.board[y][x];
+        }
+    }
 
     for(int x = 0; x < IMWD/8; x++) {
-        grid4.board[(IMHT/4)+1][x] = grid1.board[1][x];
-        grid1.board[0][x] = grid4.board[(IMHT/4)][x];
-        grid1.board[(IMHT/4)+1][x] = grid2.board[1][x];
-        grid2.board[0][x] = grid1.board[(IMHT/4)][x];
-        grid2.board[(IMHT/4)+1][x] = grid3.board[1][x];
-        grid3.board[0][x] = grid2.board[(IMHT/4)][x];
-        grid3.board[(IMHT/4)+1][x] = grid4.board[1][x];
-        grid4.board[0][x] = grid3.board[(IMHT/4)][x];
+        grid1.board[0][x] = grid8.board[(IMHT/8)][x];
+        grid1.board[(IMHT/8)+1][x] = grid2.board[1][x];
+        grid2.board[0][x] = grid1.board[(IMHT/8)][x];
+        grid2.board[(IMHT/8)+1][x] = grid3.board[1][x];
+        grid3.board[0][x] = grid2.board[(IMHT/8)][x];
+        grid3.board[(IMHT/8)+1][x] = grid4.board[1][x];
+        grid4.board[0][x] = grid3.board[(IMHT/8)][x];
+        grid4.board[(IMHT/8)+1][x] = grid5.board[1][x];
+        grid5.board[0][x] = grid4.board[(IMHT/8)][x];
+        grid5.board[(IMHT/8)+1][x] = grid6.board[1][x];
+        grid6.board[0][x] = grid5.board[(IMHT/8)][x];
+        grid6.board[(IMHT/8)+1][x] = grid7.board[1][x];
+        grid7.board[0][x] = grid6.board[(IMHT/8)][x];
+        grid7.board[(IMHT/8)+1][x] = grid8.board[1][x];
+        grid8.board[0][x] = grid7.board[(IMHT/8)][x];
+        grid8.board[(IMHT/8)+1][x] = grid1.board[1][x];
     }
     //Take current time and compare to time at beginning, print difference
     tmr :> timeDiff;
@@ -177,16 +209,32 @@ void distributor(chanend c_in, chanend c_out, chanend fromAcc, chanend fromButto
                             grid2 = worker(grid2);
                             grid3 = worker(grid3);
                             grid4 = worker(grid4);
+                            grid5 = worker(grid5);
+                            grid6 = worker(grid6);
+                            grid7 = worker(grid7);
+                            grid8 = worker(grid8);
                         }
                         for(int x = 0; x < IMWD/8; x++) {
-                            grid4.board[(IMHT/4)+1][x] = grid1.board[1][x];
-                            grid1.board[0][x] = grid4.board[(IMHT/4)][x];
-                            grid1.board[(IMHT/4)+1][x] = grid2.board[1][x];
-                            grid2.board[0][x] = grid1.board[(IMHT/4)][x];
-                            grid2.board[(IMHT/4)+1][x] = grid3.board[1][x];
-                            grid3.board[0][x] = grid2.board[(IMHT/4)][x];
-                            grid3.board[(IMHT/4)+1][x] = grid4.board[1][x];
-                            grid4.board[0][x] = grid3.board[(IMHT/4)][x];
+                            par {
+                                grid1.board[0][x] = grid8.board[(IMHT/8)][x];
+                                grid1.board[(IMHT/8)+1][x] = grid2.board[1][x];
+                                grid2.board[0][x] = grid1.board[(IMHT/8)][x];
+                                grid2.board[(IMHT/8)+1][x] = grid3.board[1][x];
+                                grid3.board[0][x] = grid2.board[(IMHT/8)][x];
+                                grid3.board[(IMHT/8)+1][x] = grid4.board[1][x];
+                                grid4.board[0][x] = grid3.board[(IMHT/8)][x];
+                                grid4.board[(IMHT/8)+1][x] = grid5.board[1][x];
+                            }
+                            par {
+                                grid5.board[0][x] = grid4.board[(IMHT/8)][x];
+                                grid5.board[(IMHT/8)+1][x] = grid6.board[1][x];
+                                grid6.board[0][x] = grid5.board[(IMHT/8)][x];
+                                grid6.board[(IMHT/8)+1][x] = grid7.board[1][x];
+                                grid7.board[0][x] = grid6.board[(IMHT/8)][x];
+                                grid7.board[(IMHT/8)+1][x] = grid8.board[1][x];
+                                grid8.board[0][x] = grid7.board[(IMHT/8)][x];
+                                grid8.board[(IMHT/8)+1][x] = grid1.board[1][x];
+                            }
                         }
                         //swapGhosts(grid1, grid2, grid3, grid4);
                     }
@@ -202,24 +250,44 @@ void distributor(chanend c_in, chanend c_out, chanend fromAcc, chanend fromButto
                     toLEDs <: 6;
                     tmr :> time;
                     printf("Outputting...\n");
-                    for( int y = 1; y < IMHT/4+1; y++ ) {
+                    for( int y = 1; y < (IMHT/8)+1; y++ ) {
                         for( int x = 0; x < (IMWD/8); x++ ) {
                             c_out <: grid1.board[y][x];
                         }
                     }
-                    for( int y = 1; y < IMHT/4+1; y++ ) {
+                    for( int y = 1; y < (IMHT/8)+1; y++ ) {
                         for( int x = 0; x < (IMWD/8); x++ ) {
                             c_out <: grid2.board[y][x];
                         }
                     }
-                    for( int y = 1; y < IMHT/4+1; y++ ) {
+                    for( int y = 1; y < (IMHT/8)+1; y++ ) {
                         for( int x = 0; x < (IMWD/8); x++ ) {
                             c_out <: grid3.board[y][x];
                         }
                     }
-                    for( int y = 1; y < IMHT/4+1; y++ ) {
+                    for( int y = 1; y < (IMHT/8)+1; y++ ) {
                         for( int x = 0; x < (IMWD/8); x++ ) {
                             c_out <: grid4.board[y][x];
+                        }
+                    }
+                    for( int y = 1; y < (IMHT/8)+1; y++ ) {
+                        for( int x = 0; x < (IMWD/8); x++ ) {
+                            c_out <: grid5.board[y][x];
+                        }
+                    }
+                    for( int y = 1; y < (IMHT/8)+1; y++ ) {
+                        for( int x = 0; x < (IMWD/8); x++ ) {
+                            c_out <: grid6.board[y][x];
+                        }
+                    }
+                    for( int y = 1; y < (IMHT/8)+1; y++ ) {
+                        for( int x = 0; x < (IMWD/8); x++ ) {
+                            c_out <: grid7.board[y][x];
+                        }
+                    }
+                    for( int y = 1; y < (IMHT/8)+1; y++ ) {
+                        for( int x = 0; x < (IMWD/8); x++ ) {
+                            c_out <: grid8.board[y][x];
                         }
                     }
                     tmr :> timeDiff;
