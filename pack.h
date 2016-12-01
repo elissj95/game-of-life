@@ -7,8 +7,8 @@
 #include <stdio.h>
 #include <string.h>
 
-#define IMWD 16
-#define IMHT 16
+#define IMWD 128
+#define IMHT 128
 
 typedef unsigned char uchar;
 
@@ -22,8 +22,8 @@ struct byteGrid {
 
 struct subGrid divideGrid(struct byteGrid grid, int section);
 struct byteGrid undivideGrid(struct subGrid grid1, struct subGrid grid2, struct subGrid grid3, struct subGrid grid4);
-struct subGrid addlinetogrid(struct subGrid grid, unsigned char line[], int lineNum);
-uchar GridToNine(uchar above, uchar middle, uchar below, uchar edgeLeft, uchar edgeRight);
+struct byteGrid addlinetogrid(struct byteGrid grid, unsigned char line[], int lineNum);
+uchar GridToNine(uchar above, uchar middle, uchar below, uchar edgeLeft, uchar edgeRight );
 /*struct subGrid worker(struct subGrid grid, chanend sendup, chanend senddown, chanend recieveabove, chanend recievebelow);*/
 
 
