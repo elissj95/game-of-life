@@ -8,8 +8,8 @@
 #include "i2c.h"
 #include "pack.h"
 
-#define  IMHT 128                 //image height
-#define  IMWD 128                //image width
+#define  IMHT 16                 //image height
+#define  IMWD 16                //image width
 
 on tile[0]: port p_scl = XS1_PORT_1E;         //interface ports to orientation
 on tile[0]: port p_sda = XS1_PORT_1F;
@@ -53,13 +53,12 @@ void buttonListener(in port b, chanend toDistributor) {
     }
 }
 
-
 // Read Image from PGM file from path infname[] to channel c_out
 void DataInStream(chanend c_out) {
     int res;
     uchar line[ IMWD ];
-    struct byteGrid grid;
-    char infname[] = "128x128.pgm";
+    uchar row[ IMWD/8 ];
+    char infname[] = "test.pgm";
     printf( "DataInStream: Start...\n" );
 
     //Open PGM file
@@ -72,14 +71,9 @@ void DataInStream(chanend c_out) {
     //Read image line-by-line and send byte by byte to channel c_out
     for( int y = 0; y < IMHT; y++ ) {
         _readinline( line, IMWD );
-
-        grid = addlinetogrid(grid, line, y);
-    }
-
-    //Send each element of grid to distributor
-    for( int y = 0; y< IMHT;y++){
+        ucharRow(line, row);
         for(int x = 0; x<(IMWD/8) ;x++){
-            c_out <: grid.board[y][x];
+            c_out <: row[x];
         }
     }
     //Close PGM image file
@@ -88,15 +82,6 @@ void DataInStream(chanend c_out) {
     return;
 }
 
-uchar leftEdgeCounter(uchar top, uchar middle, uchar bottom){
-    uchar returnval = top%2 + middle%2 + bottom%2;
-    return returnval;
-}
-
-uchar rightEdgeCounter(uchar top, uchar middle, uchar bottom){
-    uchar returnval = (top >> 7)%2 + (middle >> 7)%2 + (bottom >> 7)%2;
-    return returnval;
-}
 
 
 //Takes a grid and returns its evolved state
@@ -120,7 +105,6 @@ struct subGrid worker(struct subGrid grid){
 void distributor(chanend c_in, chanend c_out, chanend fromAcc, chanend fromButtons, chanend toLEDs){
 
     timer tmr;
-    struct byteGrid grid;
     int buttonInput;
     int stopEvolving = 0;
     int rounds = 0;
@@ -141,18 +125,42 @@ void distributor(chanend c_in, chanend c_out, chanend fromAcc, chanend fromButto
     printf( "Processing...\n" );
 
     //Populate grid with values from DataIn
-    for( int y = 0; y < IMHT; y++ ) {   //go through all lines
-        for( int x = 0; x < (IMWD/8); x++ ) { //go through each pixel per line
-            c_in :> grid.board[y][x];   //read the pixel value
+    for( int y = 1; y < IMHT/4+1; y++ ) {
+        for( int x = 0; x < (IMWD/8); x++ ) {
+            c_in :> grid1.board[y][x];
+        }
+    }
+    for( int y = 1; y < IMHT/4+1; y++ ) {
+        for( int x = 0; x < (IMWD/8); x++ ) {
+            c_in :> grid2.board[y][x];
+        }
+    }
+    for( int y = 1; y < IMHT/4+1; y++ ) {
+        for( int x = 0; x < (IMWD/8); x++ ) {
+            c_in :> grid3.board[y][x];
+        }
+    }
+    for( int y = 1; y < IMHT/4+1; y++ ) {
+        for( int x = 0; x < (IMWD/8); x++ ) {
+            c_in :> grid4.board[y][x];
         }
     }
 
+    for(int x = 0; x < IMWD/8; x++) {
+        grid4.board[(IMHT/4)+1][x] = grid1.board[1][x];
+        grid1.board[0][x] = grid4.board[(IMHT/4)][x];
+        grid1.board[(IMHT/4)+1][x] = grid2.board[1][x];
+        grid2.board[0][x] = grid1.board[(IMHT/4)][x];
+        grid2.board[(IMHT/4)+1][x] = grid3.board[1][x];
+        grid3.board[0][x] = grid2.board[(IMHT/4)][x];
+        grid3.board[(IMHT/4)+1][x] = grid4.board[1][x];
+        grid4.board[0][x] = grid3.board[(IMHT/4)][x];
+    }
     //Take current time and compare to time at beginning, print difference
     tmr :> timeDiff;
     printf("Processing the image took %f seconds.\n", (timeDiff - time)/100000000);
 
     toLEDs <: 0;
-
 
     //Serve button input
     while (!stopEvolving) {
@@ -163,23 +171,24 @@ void distributor(chanend c_in, chanend c_out, chanend fromAcc, chanend fromButto
                     toLEDs <: 5;
                     tmr :> time;
                     //Evolve grid
-                    for(int x = 0;x < 5; x++){
-                        //printf("Round: %d\n", x);
-                        par {
-                            grid1 = divideGrid(grid, 0);
-                            grid2 = divideGrid(grid, 1);
-                            grid3 = divideGrid(grid, 2);
-                            grid4 = divideGrid(grid, 3);
-                        }
-
+                    for(int x = 0;x < 100; x++){
                         par{
                             grid1 = worker(grid1);
                             grid2 = worker(grid2);
                             grid3 = worker(grid3);
                             grid4 = worker(grid4);
                         }
-
-                        grid = undivideGrid(grid1, grid2, grid3, grid4);
+                        for(int x = 0; x < IMWD/8; x++) {
+                            grid4.board[(IMHT/4)+1][x] = grid1.board[1][x];
+                            grid1.board[0][x] = grid4.board[(IMHT/4)][x];
+                            grid1.board[(IMHT/4)+1][x] = grid2.board[1][x];
+                            grid2.board[0][x] = grid1.board[(IMHT/4)][x];
+                            grid2.board[(IMHT/4)+1][x] = grid3.board[1][x];
+                            grid3.board[0][x] = grid2.board[(IMHT/4)][x];
+                            grid3.board[(IMHT/4)+1][x] = grid4.board[1][x];
+                            grid4.board[0][x] = grid3.board[(IMHT/4)][x];
+                        }
+                        //swapGhosts(grid1, grid2, grid3, grid4);
                     }
 
                     tmr :> timeDiff;
@@ -193,22 +202,30 @@ void distributor(chanend c_in, chanend c_out, chanend fromAcc, chanend fromButto
                     toLEDs <: 6;
                     tmr :> time;
                     printf("Outputting...\n");
-                    for(int x = 0; x < IMHT; x++) {
-                        for(int y = 0; y < IMWD/8; y++) {
-                            c_out <: grid.board[x][y];
+                    for( int y = 1; y < IMHT/4+1; y++ ) {
+                        for( int x = 0; x < (IMWD/8); x++ ) {
+                            c_out <: grid1.board[y][x];
+                        }
+                    }
+                    for( int y = 1; y < IMHT/4+1; y++ ) {
+                        for( int x = 0; x < (IMWD/8); x++ ) {
+                            c_out <: grid2.board[y][x];
+                        }
+                    }
+                    for( int y = 1; y < IMHT/4+1; y++ ) {
+                        for( int x = 0; x < (IMWD/8); x++ ) {
+                            c_out <: grid3.board[y][x];
+                        }
+                    }
+                    for( int y = 1; y < IMHT/4+1; y++ ) {
+                        for( int x = 0; x < (IMWD/8); x++ ) {
+                            c_out <: grid4.board[y][x];
                         }
                     }
                     tmr :> timeDiff;
                     printf("Outputting to pgm took %f seconds.\n", (timeDiff - time)/100000000);
                     toLEDs <: 0;
                     stopEvolving = 1;
-                }
-                break;
-            case fromAcc :> orientationInput:
-                printf("Board tilted, processing paused...\n");
-                printf("%d round completed so far\n", rounds);
-                while(orientationInput!=1){
-                    fromAcc :> orientationInput;
                 }
                 break;
         }
