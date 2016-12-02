@@ -134,6 +134,8 @@ void distributor(chanend c_in, chanend c_out, chanend fromAcc, chanend fromButto
             c_in :> grid1.board[y][x];
         }
     }
+    toLEDs <: 0;
+    toLEDs <: 1;
     for( int y = 1; y < (IMHT/8)+1; y++ ) {
         for( int x = 0; x < (IMWD/8); x++ ) {
             c_in :> grid2.board[y][x];
@@ -144,6 +146,8 @@ void distributor(chanend c_in, chanend c_out, chanend fromAcc, chanend fromButto
             c_in :> grid3.board[y][x];
         }
     }
+    toLEDs <: 0;
+    toLEDs <: 1;
     for( int y = 1; y < (IMHT/8)+1; y++ ) {
         for( int x = 0; x < (IMWD/8); x++ ) {
             c_in :> grid4.board[y][x];
@@ -154,6 +158,8 @@ void distributor(chanend c_in, chanend c_out, chanend fromAcc, chanend fromButto
             c_in :> grid5.board[y][x];
         }
     }
+    toLEDs <: 0;
+    toLEDs <: 1;
     for( int y = 1; y < (IMHT/8)+1; y++ ) {
         for( int x = 0; x < (IMWD/8); x++ ) {
             c_in :> grid6.board[y][x];
